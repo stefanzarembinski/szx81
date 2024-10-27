@@ -37,6 +37,10 @@ SKALA_ZANIKU_GAUSS = 2 * 60.0
 def gauss(t):
     return math.exp(-(t/SKALA_ZANIKU_GAUSS) ** 2)
 
+SKALA_ZANIKU_K = 60.0
+def filtr_k(t, exponent=0.5):
+    return math.exp(-math.fabs((t/SKALA_ZANIKU_K)) ** exponent)
+
 class Plot:
     def __init__(self, plotter=plt, axis_off=False):
         self.plotter = plotter
