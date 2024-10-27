@@ -79,11 +79,12 @@ class Plot:
     def plot(self):
         pass
     
-    def save(self, dir, show=False):
+    def save(self, dir, show=False, verbose=False):
         self.plotter.figure(figsize=(1, 1), dpi=SAVE_SIZE)
         self.plot()
         self.plotter.savefig(self.file_name(dir))
-        print(f'SAVED: {self.file_name(dir)}')
+        if verbose:
+            print(f'SAVED: {self.file_name(dir)}')
         if not show:
             plt.clf()
             plt.close()
@@ -126,8 +127,8 @@ class PlotFuture(Plot):
         self.plotter.axis([0, CURRENT_RANGE, Y_RANGE[0], Y_RANGE[1]])
 
 class PlotBoth(Plot):
-    def __init__(self, time_start=0, plotter=plt, zanik_class=ZANIK, axis_off=False):
-        super().__init__(plotter=plotter, axis_off=axis_off)
+    def __init__(self, time_start=0, plotter=plt, axis_off=False):
+        super().__init__(plotter=plotter, axis_off=axis_off)       
 
         filtered_value = FILTERED_VALUE[time_start: time_start + CURRENT_RANGE]
         filtered_value = filtered_value - filtered_value[-1]
@@ -135,7 +136,7 @@ class PlotBoth(Plot):
         self.time_count_l = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
         self.time_count_l = self.time_count_l - self.time_count_l[-1]
 
-        self.zanik = np.array([filtered_value[i] * zanik_class.quench(self.time_count_l[i]) for i in range(len(self.time_count_l))])
+        self.zanik = np.array([filtered_value[i] * ZANIK.quench(self.time_count_l[i]) for i in range(len(self.time_count_l))])
         
         value = VALUE[time_start + CURRENT_RANGE: time_start + CURRENT_RANGE + FUTURE_RANGE]
         self.value = value - value[0]
@@ -172,7 +173,7 @@ def save(time_start=0):
     plot = PlotCurrent(time_start, plt, axis_off=True)
     plot.save(CURRENT_FIG_DIR)
     
-    plot = PlotFuture(time_start, plt, axis_off=True)
+    plot = PlotBoth(time_start, plt, axis_off=True)
     plot.save(FUTURE_FIG_DIR)
     # plt.cla()
     # plt.close()
