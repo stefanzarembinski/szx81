@@ -23,7 +23,6 @@ def exp(t):
 
 CURRENT_RANGE = 11 * 60
 FUTURE_RANGE = 1 * 60
-FRAME_SHIFT = 20
 Y_RANGE = [-2e-3, 2e-3]
 SAVE_SIZE = 2 ** 8
 
@@ -132,72 +131,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-
-
-
-
-
-
-
-# x_all_data = np.array([i for i in range(len(all_data))])
-# y_all_data = np.array([values[1][0] for values in all_data])
-
-# limits = (0,1200)
-# shift = 0
-# data = all_data[limits[0] + shift: limits[1] + shift]
-
-# minute_count = np.array([i + shift for i in range(len(data))], dtype='float64')
-# value = np.array([values[1][0] for values in data])
-# value = value - value[-1] 
-# minute_count = minute_count - minute_count[-1]
-
-# SKALA_ZANIKU_EXP = 500.0
-# def exp(t):
-#     return math.exp(-math.fabs(t/SKALA_ZANIKU_EXP))
-
-# SKALA_ZANIKU_GAUSS = 200.0
-# def gauss(t):
-#     return math.exp(-(t/SKALA_ZANIKU_GAUSS) ** 2)
-
-# import pdb; pdb.set_trace()
-# zanik_exp = [value[i] * exp(minute_count[i]) for i in range(len(minute_count))]
-# zanik_gauss = [value[i] * gauss(minute_count[i]) for i in range(len(minute_count))]
-
-
-# CURRENT_RANGE = 1 * 60
-# FUTURE_RANGE = 20
-# FRAME_SHIFT = 20
-# FILTER = Savgol_filter(window=50, order=5)
-# ZANIK = gauss # exp gauss
-
-# def plot_current(_plot):
-#     data = all_data[limits[0]: limits[1]]
-
-#     time_count = np.array([i + shift for i in range(len(data))], dtype='float64')
-#     value = np.array([values[1][0] for values in data])
-#     value = value - value[-1] 
-#     time_count = time_count - time_count[-1]
-
-#     zanik = np.array([value[i] * ZANIK(time_count[i]) for i in range(len(time_count))])
-
-#     value = FILTER.filter(value)
-
-#     # _plot.plot(time_count, zanik, color='black', linewidth=0.0)
-#     # _plot.fill_between(time_count, zanik, where=((zanik < 0)), color='blue')
-#     # _plot.fill_between(time_count, zanik, where=((zanik > 0)), color='red')
-#     # _plot.axis('off')  
-#     # 
-#     plt.plot(time_count, zanik, color='black', linewidth=0.0)
-#     plt.fill_between(time_count, zanik, where=((zanik < 0)), color='blue')
-#     plt.fill_between(time_count, zanik, where=((zanik > 0)), color='red')
-#     plt.axis('off')  
-
-# def dwa_obrazki(time_start=0, frame_shift_count=0):
-#     limits = (time_start + frame_shift_count * FRAME_SHIFT, 
-#               CURRENT_RANGE + frame_shift_count * FRAME_SHIFT)
-
-#     fig, (current, future) = plt.subplots(1, 2, figsize=(10, 5))
-
-#     plot_current(current)
-#     plot_current(future)
