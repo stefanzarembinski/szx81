@@ -31,7 +31,7 @@ FILTERED_VALUE = Savgol_filter(window=50, order=5).filter(VALUE)
 ZANIK = gauss # exp gauss
 CURRENT_FIG_DIR = path.normpath(path.join(DIRNAME,'../../obrazki_kubusia/current'))
 FUTURE_FIG_DIR = path.normpath(path.join(DIRNAME,'../../obrazki_kubusia/future'))
-TIMESTRING = '%y-%m-%d_%H-M'
+TIMESTRING = '%y-%m-%d_%H-%M'
 # import pdb; pdb.set_trace()
 
 SKALA_ZANIKU_GAUSS = 2 * 60.0 
