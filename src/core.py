@@ -4,8 +4,10 @@ from os import path
 import numbers
 import time
 import datetime
+import numpy as np
 import csv
 import matplotlib.pyplot as plt
+import scipy.signal as signal
 import setup
 
 SETUP = setup.CONFIG
@@ -78,7 +80,6 @@ Loads the data to a list accesible with a generator defined in the Class.
             mean_value = ma.ma()
             values = [val - mean_value for val in dat[1]]
             self.data.append((timestamp, values))
-
     
     def reset_generator(self, count=0):
         if count != 0:
@@ -113,6 +114,15 @@ Loads the data to a list accesible with a generator defined in the Class.
         plt.ylabel('open value')
         plt.legend()
         plt.show()
+
+
+class Savgol_filter:
+    def __init__(self, window=50, order=2):
+        self.window = window
+        self.order = order
+
+    def filter(self, values):
+        return signal.savgol_filter(values, self.window, self.order)
 
 def main():
     test_data = TestData()
