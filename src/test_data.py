@@ -110,8 +110,6 @@ def init(data_size=3000):
     TIMESTAMP = np.array([values[0] for values in DATA])
     print(f'Test data size is {len(DATA)}')
 
-init()
-
 def main():
     TEST_DATA_OBJ.plot(12000)
 
