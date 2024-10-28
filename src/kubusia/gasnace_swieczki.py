@@ -7,11 +7,7 @@ import numpy as np
 DIRNAME = path.dirname(__file__)
 sys.path.append(path.join(DIRNAME, '..'))
 from core import *
-
-DATA = TestData().data
-TIME_COUNT = np.array([i for i in range(len(DATA))], dtype='float64')
-VALUE = np.array([values[1][0] for values in DATA])
-TIMESTAMP = np.array([values[0] for values in DATA])
+from test_data import *
 
 SKALA_ZANIKU_GAUSS = 200.0
 def gauss(t):
@@ -47,8 +43,6 @@ class FiltrK:
 
     def quench(self, t):
         return math.exp(-math.fabs((t/self.tau)) ** self.exp)
-
-FILTERED_VALUE = Savgol_filter(window=50, order=5).filter(VALUE)
 
 # ZANIK = ExpQuench(tau=60)
 ZANIK = GaussQuench(tau=60)
@@ -93,15 +87,14 @@ class PlotCurrent(Plot):
     def __init__(self, time_start=0, plotter=plt, zanik_class=ZANIK, axis_off=False):
         super().__init__(plotter=plotter, axis_off=axis_off)
 
-        filtered_value = FILTERED_VALUE[time_start: time_start + CURRENT_RANGE]
+        value = VALUE[time_start: time_start + CURRENT_RANGE]
+        filtered_value = Savgol_filter(window=50, order=5).filter(value)
         filtered_value = filtered_value - filtered_value[-1]
-
         self.time_count = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
         self.time_count = self.time_count - self.time_count[-1]
-
         self.zanik = np.array([filtered_value[i] * zanik_class.quench(self.time_count[i]) for i in range(len(self.time_count))])
+                
         self.timestamp = TIMESTAMP[time_start + CURRENT_RANGE]
-        # import pdb; pdb.set_trace()
         
     def plot(self):
         self.plotter.plot(self.time_count, self.zanik, color='black', linewidth=0.0)
@@ -116,10 +109,9 @@ class PlotFuture(Plot):
 
         value = VALUE[time_start + CURRENT_RANGE: time_start + CURRENT_RANGE + FUTURE_RANGE]
         self.value = value - value[0]
-
         self.time_count = np.array([i for i in range(FUTURE_RANGE)], dtype='float64')
+
         self.timestamp = TIMESTAMP[time_start]        
-        # import pdb; pdb.set_trace()
 
     def plot(self):
         self.plotter.plot(self.time_count, self.value, color='black', linewidth=1)
@@ -129,29 +121,25 @@ class PlotFuture(Plot):
 class PlotBoth(Plot):
     def __init__(self, time_start=0, plotter=plt, axis_off=False):
         super().__init__(plotter=plotter, axis_off=axis_off)       
-
-        filtered_value = FILTERED_VALUE[time_start: time_start + CURRENT_RANGE]
+        value = VALUE[time_start: time_start + CURRENT_RANGE]
+        filtered_value = Savgol_filter(window=50, order=5).filter(value)
         filtered_value = filtered_value - filtered_value[-1]
-
-        self.time_count_l = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
-        self.time_count_l = self.time_count_l - self.time_count_l[-1]
-
-        self.zanik = np.array([filtered_value[i] * ZANIK.quench(self.time_count_l[i]) for i in range(len(self.time_count_l))])
+        self.time_current = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
+        self.time_current = self.time_current - self.time_current[-1]
+        self.zanik = np.array([filtered_value[i] * ZANIK.quench(self.time_current[i]) for i in range(len(self.time_current))])
         
         value = VALUE[time_start + CURRENT_RANGE: time_start + CURRENT_RANGE + FUTURE_RANGE]
         self.value = value - value[0]
-
-        self.time_count_r = np.array([i for i in range(FUTURE_RANGE)], dtype='float64')
+        self.time_future = np.array([i for i in range(FUTURE_RANGE)], dtype='float64')
         
         self.timestamp = TIMESTAMP[time_start + CURRENT_RANGE]
-        # import pdb; pdb.set_trace()
         
     def plot(self):
-        self.plotter.plot(self.time_count_r, self.value, color='black', linewidth=1)
+        self.plotter.plot(self.time_future, self.value, color='black', linewidth=1)
 
-        self.plotter.plot(self.time_count_l, self.zanik, color='black', linewidth=0.0)
-        self.plotter.fill_between(self.time_count_l, self.zanik, where=((self.zanik < 0)), color='blue')
-        self.plotter.fill_between(self.time_count_l, self.zanik, where=((self.zanik > 0)), color='red')
+        self.plotter.plot(self.time_current, self.zanik, color='black', linewidth=0.0)
+        self.plotter.fill_between(self.time_current, self.zanik, where=((self.zanik < 0)), color='blue')
+        self.plotter.fill_between(self.time_current, self.zanik, where=((self.zanik > 0)), color='red')
         self.off()
         self.plotter.axis([-CURRENT_RANGE, FUTURE_RANGE, Y_RANGE[0], Y_RANGE[1]])
 
@@ -175,13 +163,12 @@ def save(time_start=0):
     
     plot = PlotBoth(time_start, plt, axis_off=True)
     plot.save(FUTURE_FIG_DIR)
-    # plt.cla()
-    # plt.close()
+    plt.cla()
+    plt.close()
 
 def main():
     dwa_obrazki(time_start=20, axis_off=False)
     # save()
-
 
 if __name__ == "__main__":
     main()
