@@ -16,6 +16,7 @@ sys.path.append(TEST_DATA_DIR)
 import config # type: ignore
 
 TEST_DATA = 'test_data'
+PERIOD = config.CONFIG['period']
 WARMUP_TIME = config.CONFIG['ma_window_size'] # min
 
 class MovingAverage:
