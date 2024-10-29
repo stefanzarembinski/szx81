@@ -57,12 +57,13 @@ Loads the data to a list accesible with a generator defined in the Class.
         # Subtract mooving avarage:
         self.data = []
         ma = MovingAverage()
+        _warmup_time -= 1
         for dat in data:
             timestamp = dat[0]
+            _warmup_time -= 1
             if _warmup_time > 0:
                 continue
-            _warmup_time -= 1
-
+            
             if moving_av:
                 ma.add(dat[1][0])
                 mean_value = ma.ma()
@@ -71,6 +72,7 @@ Loads the data to a list accesible with a generator defined in the Class.
                 values = [val for val in dat[1]]
 
             self.data.append((timestamp, values))
+        pass
             
     def reset_generator(self, count=0):
         if count != 0:

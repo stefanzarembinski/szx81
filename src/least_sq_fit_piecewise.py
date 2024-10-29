@@ -8,18 +8,19 @@ from core import *
 import test_data as td
 
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
+td.set_test_data(
+    data_size=10000, 
+    start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(), 
+    moving_av=True)
 
-data = td.init(5000)[:1200]
-x_data = [i for i in range(len(data))]
-y_data = [values[1][0] for values in data]
-limits = (0, 250)
-shift = 0
-data = data[limits[0] + shift: limits[1] + shift]
-filter = Savgol_filter(window=10, order=2)
+LIMITS = (0, 250)
+SHIFT = 0
+DATA = td.DATA[LIMITS[0] + SHIFT: LIMITS[1] + SHIFT]
+FILTER = Savgol_filter(window=10, order=2)
 
-cndl_count = np.array([i + shift for i in range(len(data) + shift)], dtype='float64')
-value = np.array([values[1][0] for values in data])
-filtered = filter.filter(value)
+CNDL_COUNT = np.array([i + SHIFT for i in range(len(DATA) + SHIFT)], dtype='float64')
+VALUE = np.array([values[1][0] for values in DATA])
+filtered = FILTER.filter(VALUE)
 
 
 # def piecewise(self, x, params):
@@ -117,7 +118,7 @@ class Splines:
         return spl(x)
 
     def param_hedge(self):
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         xk = self._knots()[0][1:-1]
         # return np.array([self.x[0] - min(xk), max(xk) - self.x[-1]])
 
@@ -133,15 +134,14 @@ class LeastSq:
     def run(self):
         return spo.leastsq(self.func_class.func, self.func_class.param_0())
     
-optimizer = LeastSq(Splines(cndl_count, value, scale_x=1e-5, number_pieces=17))
+optimizer = LeastSq(Splines(CNDL_COUNT, VALUE, scale_x=1e-5, number_pieces=17))
 p, e = optimizer.run()
-
 print(p)
 print(optimizer.func_class.param_0())
 
 clazz = optimizer.func_class
-plt.plot(cndl_count, value, color='green', label='data')
-plt.plot(cndl_count, clazz.approx(cndl_count, p), color='blue', label='approx')
+plt.plot(CNDL_COUNT, VALUE, color='green', label='data')
+plt.plot(CNDL_COUNT, clazz.approx(CNDL_COUNT, p), color='blue', label='approx')
 plt.scatter(*clazz.knots(clazz.param_0()), color='black', label='param start')
 plt.scatter(*clazz.knots(p), color='orange', label='param final')
 
