@@ -58,9 +58,9 @@ class FiltrK:
     def quench(self, t):
         return np.array([math.exp(-math.fabs((_/self.tau)) ** self.exp) for _ in t])
 
-# ZANIK = ExpQuench(tau=60)
-ZANIK = GaussQuench(tau=60)
-# ZANIK = FiltrK(tau=66, exp=0.5)
+# QUENCH = ExpQuench(tau=60)
+QUENCH = GaussQuench(tau=60)
+# QUENCH = FiltrK(tau=66, exp=0.5)
 
 CURRENT_FIG_DIR = path.normpath(path.join(DIRNAME,'../../obrazki_kubusia/current'))
 FUTURE_FIG_DIR = path.normpath(path.join(DIRNAME,'../../obrazki_kubusia/future'))
@@ -107,7 +107,7 @@ class PlotCurrent(Plot):
         filtered_value = filtered_value - filtered_value[-1]
         self.time_count = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
         self.time_count = self.time_count - self.time_count[-1]
-        self.zanik = filtered_value * ZANIK.quench(self.time_count)
+        self.zanik = filtered_value * QUENCH.quench(self.time_count)
                         
         self.timestamp = TIMESTAMP[time_start + CURRENT_RANGE]
         
@@ -142,7 +142,7 @@ class PlotBoth(Plot):
         filtered_value = filtered_value - filtered_value[-1]
         self.time_current = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
         self.time_current = self.time_current - self.time_current[-1]
-        self.zanik = filtered_value * ZANIK.quench(self.time_current)
+        self.zanik = filtered_value * QUENCH.quench(self.time_current)
         
         value = VALUE[time_start: time_start + CURRENT_RANGE + FUTURE_RANGE]
         time = np.array([i for i in range(len(value))], dtype='float64')

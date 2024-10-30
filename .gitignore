@@ -7,3 +7,4 @@ src/__pycache__/core.cpython-310.pyc
 *.pyc
 *.csv
 *.pyc
+temp.txt
