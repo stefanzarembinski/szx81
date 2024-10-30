@@ -17,7 +17,7 @@ Loads the data to a list accesible with a generator defined in the Class.
         if start_time is not None:
             start_time -= _warmup_time * PERIOD * 60
         
-        timestring_format = config.CONFIG['timestring']
+        timestring_format = TIMESTRING
         data = {} # `using dict` to avoid duplicates
         self.iter_count = 0
         data_dir = path.join(TEST_DATA_DIR, TEST_DATA)
@@ -42,7 +42,7 @@ Loads the data to a list accesible with a generator defined in the Class.
                             break
                         data_count -= 1
                     
-                    if not timestamp % config.CONFIG['period'] == 0:
+                    if not timestamp % core.PERIOD == 0:
                         raise RuntimeError('Wrong data period!')
 
                     _values = []
@@ -95,7 +95,7 @@ Loads the data to a list accesible with a generator defined in the Class.
         x = []
         y = []
         _x = 0
-        deltax = config.CONFIG['period'] / 60
+        deltax = PERIOD / 60
         for _xy in plot_values:
             x.append(_x)
             _x += deltax

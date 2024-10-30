@@ -104,7 +104,7 @@ class PlotCurrent(Plot):
         filtered_value = filtered_value - filtered_value[-1]
         self.time_count = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
         self.time_count = self.time_count - self.time_count[-1]
-        self.zanik = filtered_value * 1 if QUENCH is None else QUENCH.quench(self.time_count)
+        self.zanik = filtered_value * (1 if QUENCH is None else QUENCH.quench(self.time_count))
                         
         self.timestamp = TIMESTAMP[time_start + CURRENT_RANGE]
         
@@ -141,7 +141,7 @@ class PlotBoth(Plot):
         filtered_value = filtered_value - filtered_value[-1]
         self.time_curr = np.array([i for i in range(len(value_curr))], dtype='float64')
         self.time_curr = self.time_curr - self.time_curr[-1]
-        self.zanik = filtered_value * 1 if QUENCH is None else QUENCH.quench(self.time_count)
+        self.zanik = filtered_value * (1 if QUENCH is None else QUENCH.quench(self.time_curr))
         
         self.value_fut = VALUE[time_start + CURRENT_RANGE: time_start + CURRENT_RANGE + FUTURE_RANGE]
         self.value_fut = self.value_fut - self.value_fut[0]

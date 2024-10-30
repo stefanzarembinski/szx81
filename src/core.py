@@ -18,6 +18,7 @@ import config # type: ignore
 TEST_DATA = 'test_data'
 PERIOD = config.CONFIG['period']
 WARMUP_TIME = config.CONFIG['ma_window_size'] # min
+TIMESTRING = config.CONFIG['timestring']
 
 class MovingAverage:
     
