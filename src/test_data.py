@@ -89,47 +89,32 @@ Loads the data to a list accesible with a generator defined in the Class.
             self.iter_count += 1 
             yield retval
         yield None
-        
-    def plot(self, count=None):
-        plot_values = self.data[:count] if count is not None else self.data
-        x = []
-        y = []
-        _x = 0
-        deltax = PERIOD / 60
-        for _xy in plot_values:
-            x.append(_x)
-            _x += deltax
-            y.append(_xy[1][1])
-
-        plt.plot(x, y, label='forex', color='green')
-        plt.xlabel('time [min]')
-        plt.ylabel('open value')
-        plt.legend()
-        plt.show()
-
-TEST_DATA_OBJ = None
 DATA = None
-TIME_COUNT = None
-VALUE = None
-TIMESTAMP = None
 
 def set_test_data(data_size=3000, start_time=None, moving_av=True):
-    global TEST_DATA_OBJ
     global DATA
-    global TIME_COUNT
-    global VALUE
-    global TIMESTAMP
-
-    TEST_DATA_OBJ = TestData(data_count=data_size, start_time=start_time, moving_av=moving_av)
-    DATA = TEST_DATA_OBJ.data # 86401 builtin_function_or_method' object is not subscriptable
-    TIME_COUNT = np.array([i for i in range(len(DATA))], dtype='float64')
-    VALUE = np.array([values[1][0] for values in DATA])
-    TIMESTAMP = np.array([values[0] for values in DATA])
+    DATA = TestData(data_count=data_size, start_time=start_time, moving_av=moving_av).data
     print(f'Test data size is {len(DATA)}')
     print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
     print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')
     print(f'Subtracting moving avarage: {moving_av}')
     
+def plot(count=None):
+    plot_values = DATA[:count] if count is not None else PendingDeprecationWarning
+    x = []
+    y = []
+    _x = 0
+    deltax = PERIOD / 60
+    for _xy in plot_values:
+        x.append(_x)
+        _x += deltax
+        y.append(_xy[1][1])
+
+    plt.plot(x, y, label='forex', color='green')
+    plt.xlabel('time [min]')
+    plt.ylabel('open value')
+    plt.legend()
+    plt.show()
 
 def main():
     set_test_data(
@@ -137,11 +122,7 @@ def main():
     start_time=datetime.datetime(2023, 3, 21, 11, 25).timestamp(),
     moving_av=False
     )
-    # set_test_data(
-    #     data_size=5000, 
-    #     start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(),
-    #     moving_av=False)
-    TEST_DATA_OBJ.plot(12000)
+    plot(12000)
 
 if __name__ == "__main__":
     main()

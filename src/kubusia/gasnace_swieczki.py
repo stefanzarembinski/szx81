@@ -32,11 +32,12 @@ class LogPlot:
                 -math.log10(-min(0, _) + self.offset) for _ in x]
     
 class ATanPlot:
-    def __init__(self, scale=1e-3):
-        self.scale = scale
+    def __init__(self, range=1e-3, const=5):
+        self.range = range
+        self.const = const
 
-    def convert(self, x):
-        return [math.atan(_) / self.scale for _ in x]
+    def convert(self, y):
+        return [math.atan(_ * self.const / self.range) * self.range * 2 / math.pi for _ in y]
 
 class ExpQuench:
     def __init__(self, tau=66):
@@ -219,3 +220,4 @@ def main():
 if __name__ == "__main__":
     main()
 
+ 
