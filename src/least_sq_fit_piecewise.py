@@ -136,9 +136,9 @@ class LeastSq:
     
 optimizer = LeastSq(Splines(CNDL_COUNT, VALUE, scale_x=1e-5, number_pieces=17))
 p, e = optimizer.run()
-print(p)
-print(optimizer.func_class.param_0())
-
+# print(p)
+# print(optimizer.func_class.param_0())
+ 
 clazz = optimizer.func_class
 plt.plot(CNDL_COUNT, VALUE, color='green', label='data')
 plt.plot(CNDL_COUNT, clazz.approx(CNDL_COUNT, p), color='blue', label='approx')

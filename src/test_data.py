@@ -14,7 +14,6 @@ Loads the data to a list accesible with a generator defined in the Class.
         _warmup_time = WARMUP_TIME if moving_av else 0
         if data_count is not None:
             data_count += _warmup_time
-
         if start_time is not None:
             start_time -= _warmup_time * PERIOD * 60
         
@@ -127,15 +126,15 @@ def set_test_data(data_size=3000, start_time=None, moving_av=True):
     VALUE = np.array([values[1][0] for values in DATA])
     TIMESTAMP = np.array([values[0] for values in DATA])
     print(f'Test data size is {len(DATA)}')
-    print(f'Test data start time is {time.strftime("%Y:%M:%d,%H:%M:%S", time.gmtime(DATA[0][0]))}')
-    print(f'Test data start time is {time.strftime("%Y:%M:%d,%H:%M:%S", time.gmtime(DATA[-1][0]))}')
+    print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
+    print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')
     print(f'Subtracting moving avarage: {moving_av}')
     
 
 def main():
     set_test_data(
     data_size=5000, 
-    start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(),
+    start_time=datetime.datetime(2023, 3, 21, 11, 25).timestamp(),
     moving_av=False
     )
     # set_test_data(
