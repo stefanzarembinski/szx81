@@ -89,11 +89,19 @@ Loads the data to a list accesible with a generator defined in the Class.
             self.iter_count += 1 
             yield retval
         yield None
+
 DATA = None
+VALUE = None
+TIMESTAMP = None
 
 def set_test_data(data_size=3000, start_time=None, moving_av=True):
     global DATA
+    global VALUE
+    global TIMESTAMP
+
     DATA = TestData(data_count=data_size, start_time=start_time, moving_av=moving_av).data
+    VALUE = np.array([values[1][0] for values in DATA])
+    TIMESTAMP = np.array([values[0] for values in DATA])
     print(f'Test data size is {len(DATA)}')
     print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
     print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')

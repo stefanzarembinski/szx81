@@ -10,12 +10,13 @@ sys.path.append(path.join(DIRNAME, '..'))
 from core import *
 import test_data as td
 
-if td.TEST_DATA_OBJ is None:
+if td.DATA is None:
     td.set_test_data(
     data_size=5000, 
     start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(),
     moving_av=False
     )
+
 from test_data import *
 
 CURRENT_RANGE = 11 * 60
