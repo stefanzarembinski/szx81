@@ -50,7 +50,7 @@ class GaussQuench:
     def quench(self, t):
         return np.array([math.exp(-(_/self.tau) ** 2) for _ in t])
     
-class FiltrK:
+class CustomQuench:
     def __init__(self, tau=66, exp=0.5):
         self.tau = tau
         self.exp = exp
@@ -60,14 +60,13 @@ class FiltrK:
 
 # QUENCH = ExpQuench(tau=60)
 QUENCH = GaussQuench(tau=60)
-# QUENCH = FiltrK(tau=66, exp=0.5)
+# QUENCH = CustomQuench(tau=66, exp=0.5)
 
 CURRENT_FIG_DIR = path.normpath(path.join(DIRNAME,'../../obrazki_kubusia/current'))
 FUTURE_FIG_DIR = path.normpath(path.join(DIRNAME,'../../obrazki_kubusia/future'))
 TIMESTRING = '%y-%m-%d_%H-%M'
 # import pdb; pdb.set_trace()
 
-# FILTER = lambda value: Savgol_filter(window=50, order=5).filter(value)
 FILTER = Savgol_filter(window=50, order=5)
 
 class Plot:
