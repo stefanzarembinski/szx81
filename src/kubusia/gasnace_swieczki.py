@@ -18,7 +18,6 @@ if td.TEST_DATA_OBJ is None:
     )
 from test_data import *
 
-
 CURRENT_RANGE = 11 * 60
 FUTURE_RANGE = 1 * 60
 Y_RANGE = [-2e-3, 2e-3]
@@ -59,15 +58,14 @@ class CustomQuench:
         return np.array([math.exp(-math.fabs((_/self.tau)) ** self.exp) for _ in t])
 
 # QUENCH = ExpQuench(tau=60)
-QUENCH = GaussQuench(tau=60)
-# QUENCH = CustomQuench(tau=66, exp=0.5)
+# QUENCH = GaussQuench(tau=60)
+QUENCH = None # CustomQuench(tau=66, exp=0)
+FILTER = None #Savgol_filter(window=50, order=5)
 
 CURRENT_FIG_DIR = path.normpath(path.join(DIRNAME,'../../obrazki_kubusia/current'))
 FUTURE_FIG_DIR = path.normpath(path.join(DIRNAME,'../../obrazki_kubusia/future'))
 TIMESTRING = '%y-%m-%d_%H-%M'
 # import pdb; pdb.set_trace()
-
-FILTER = Savgol_filter(window=50, order=5)
 
 class Plot:
     def __init__(self, plotter=plt, axis_off=False):
@@ -102,11 +100,11 @@ class PlotCurrent(Plot):
         super().__init__(plotter=plotter, axis_off=axis_off)
 
         value = VALUE[time_start: time_start + CURRENT_RANGE]
-        filtered_value = FILTER.filter(value)
+        filtered_value = value if FILTER is None else FILTER.filter(value) 
         filtered_value = filtered_value - filtered_value[-1]
         self.time_count = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
         self.time_count = self.time_count - self.time_count[-1]
-        self.zanik = filtered_value * QUENCH.quench(self.time_count)
+        self.zanik = filtered_value * 1 if QUENCH is None else QUENCH.quench(self.time_count)
                         
         self.timestamp = TIMESTAMP[time_start + CURRENT_RANGE]
         
@@ -134,28 +132,30 @@ class PlotFuture(Plot):
 
 class PlotBoth(Plot):
     def __init__(self, time_start=0, plotter=plt, axis_off=False):
-        super().__init__(plotter=plotter, axis_off=axis_off)       
-        value = VALUE[time_start: time_start + CURRENT_RANGE]
+        super().__init__(plotter=plotter, axis_off=axis_off)
 
-        filtered_value = FILTER.filter(value)
+        value_curr = VALUE[time_start: time_start + CURRENT_RANGE]
+        value_curr = value_curr - value_curr[-1]
+        self.value_curr = value_curr
+        filtered_value = value_curr if FILTER is None else FILTER.filter(value_curr) 
         filtered_value = filtered_value - filtered_value[-1]
-        self.time_current = np.array([i for i in range(CURRENT_RANGE)], dtype='float64')
-        self.time_current = self.time_current - self.time_current[-1]
-        self.zanik = filtered_value * QUENCH.quench(self.time_current)
+        self.time_curr = np.array([i for i in range(len(value_curr))], dtype='float64')
+        self.time_curr = self.time_curr - self.time_curr[-1]
+        self.zanik = filtered_value * 1 if QUENCH is None else QUENCH.quench(self.time_count)
         
-        value = VALUE[time_start: time_start + CURRENT_RANGE + FUTURE_RANGE]
-        time = np.array([i for i in range(len(value))], dtype='float64')
-        self.value = value - value[CURRENT_RANGE]
-        self.time = time - time[CURRENT_RANGE]
+        self.value_fut = VALUE[time_start + CURRENT_RANGE: time_start + CURRENT_RANGE + FUTURE_RANGE]
+        self.value_fut = self.value_fut - self.value_fut[0]
+        self.time_fut = np.array([i for i in range(len(self.value_fut))], dtype='float64')
         
         self.timestamp = TIMESTAMP[time_start + CURRENT_RANGE]
         
     def plot(self):
-        self.plotter.plot(self.time, self.value, color='black', linewidth=0.5)
+        self.plotter.plot(self.time_curr, self.value_curr, color='black', linewidth=0.5)
+        self.plotter.plot(self.time_fut, self.value_fut, color='black', linewidth=0.5)
 
-        self.plotter.plot(self.time_current, self.zanik, color='black', linewidth=0.0)
-        self.plotter.fill_between(self.time_current, self.zanik, where=((self.zanik < 0)), color='blue')
-        self.plotter.fill_between(self.time_current, self.zanik, where=((self.zanik > 0)), color='red')
+        self.plotter.plot(self.time_curr, self.zanik, color='black', linewidth=0.0)
+        self.plotter.fill_between(self.time_curr, self.zanik, where=((self.zanik < 0)), color='blue')
+        self.plotter.fill_between(self.time_curr, self.zanik, where=((self.zanik > 0)), color='red')
         self.plotter.axvline(x=2, color='black', linestyle='--', linewidth=1)
         self.off()
         self.plotter.axis([-CURRENT_RANGE, FUTURE_RANGE, Y_RANGE[0], Y_RANGE[1]])
