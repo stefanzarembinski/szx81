@@ -28,12 +28,15 @@ class LogPlot:
         self.offset = offset
         
     def convert(self, x):
-        if type(x) is (int or float):
-            return \
-                math.log10(max(0, x) + self.offset) if x > 0 else \
-                math.log10(-min(0, x) + self.offset)
         return [math.log10(max(0, _) + self.offset) if _ > 0 else \
                 -math.log10(-min(0, _) + self.offset) for _ in x]
+    
+class ATanPlot:
+    def __init__(self, scale=1e-3):
+        self.scale = scale
+
+    def convert(self, x):
+        return [math.atan(_) / self.scale for _ in x]
 
 class ExpQuench:
     def __init__(self, tau=66):

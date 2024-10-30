@@ -42,7 +42,7 @@ Loads the data to a list accesible with a generator defined in the Class.
                             break
                         data_count -= 1
                     
-                    if not timestamp % core.PERIOD == 0:
+                    if not timestamp % PERIOD == 0:
                         raise RuntimeError('Wrong data period!')
 
                     _values = []
