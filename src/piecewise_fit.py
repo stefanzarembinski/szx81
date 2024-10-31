@@ -92,36 +92,40 @@ class Splines:
             param.append(self.y[i])
         return np.array(param)
     
-    def _knots(self):
-        xk = np.array(self.params[:self.n])
+    def _knots(self, params):
+        xk = np.array(params[:self.n])
         xk = np.insert(xk, 0, self.x[0])
         xk = np.append(xk, self.x[-1])
-        yk = np.array(self.params[self.n:]) 
+        yk = np.array(params[self.n:]) 
         xy = [list(x) for x in zip(*sorted(zip(xk, yk), key=itemgetter(0)))]
         return xy[0], xy[1]
     
     def knots(self, params=None):
-        if params is not None:
-            self.params = params
-        xk, yk = self._knots()
+        if params is None:
+            params = self.params
+        xk, yk = self._knots(params)
         return [x / self.scale_x for x in xk], yk
 
-    def _approx(self, x):
-        xk, yk = self._knots()
+    def _approx(self, x, params):
+        if params is None:
+            params = self.params
+        xk, yk = self._knots(params)
         bspl = splrep(xk, yk, k=self.k, s=0)       
         spl = BSpline(*bspl)
         return spl(x)
     
-    def approx(self, x, params=None):
-        if params is not None:
-            self.params = params  
-        xk, yk = self._knots()
+    def approx(self, x, params=None): 
+        if params is None:
+            params = self.params
+        xk, yk = self._knots(params)
         bspl = list(splrep(xk, yk, k=self.k, s=0))
         bspl[0] = bspl[0] / self.scale_x
         spl = BSpline(*bspl)
         return spl(x)
 
     def param_hedge(self):
+        if params is None:
+            params = self.params
         # import pdb; pdb.set_trace()
         xk = self._knots()[0][1:-1]
         # return np.array([self.x[0] - min(xk), max(xk) - self.x[-1]])
@@ -129,7 +133,7 @@ class Splines:
     def func(self, params=None):
             if params is not None:
                 self.params = params
-            return (self.y - self._approx(self.x)) / len(self.y) ** 0.5
+            return (self.y - self._approx(self.x, params)) / len(self.y) ** 0.5
 
 class LeastSq:
     def __init__(self, func_class):
@@ -147,6 +151,7 @@ def main():
     # print(optimizer.func_class.param_0())
     
     clazz = optimizer.func_class
+    print(clazz.func())
     plt.plot(CNDL_COUNT, VALUE, color='green', label='data')
     plt.plot(CNDL_COUNT, clazz.approx(CNDL_COUNT, p), color='blue', label='approx')
     plt.scatter(*clazz.knots(clazz.param_0()), color='black', label='param start')
@@ -154,3 +159,6 @@ def main():
 
     plt.legend()
     plt.show()
+
+if __name__ == "__main__":
+    main()
