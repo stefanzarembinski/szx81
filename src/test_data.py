@@ -1,7 +1,11 @@
 import time
 import datetime
+import os
 from os import path
-from core import *
+import numpy as np
+import csv
+import matplotlib.pyplot as plt
+import core as co
 
 class TestData:
     """
@@ -11,16 +15,16 @@ Loads the data to a list accesible with a generator defined in the Class.
     """
     def __init__(self, data_count=200, start_time=None, moving_av=True):
 
-        _warmup_time = WARMUP_TIME if moving_av else 0
+        _warmup_time = co.WARMUP_TIME if moving_av else 0
         if data_count is not None:
             data_count += _warmup_time
         if start_time is not None:
-            start_time -= _warmup_time * PERIOD * 60
+            start_time -= _warmup_time * co.PERIOD * 60
         
-        timestring_format = TIMESTRING
+        timestring_format = co.TIMESTRING
         data = {} # `using dict` to avoid duplicates
         self.iter_count = 0
-        data_dir = path.join(TEST_DATA_DIR, TEST_DATA)
+        data_dir = path.join(co.TEST_DATA_DIR, co.TEST_DATA)
         for data_file in os.listdir(data_dir):
             with open(path.join(data_dir, data_file), newline='') as csvfile:
                 spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
@@ -42,7 +46,7 @@ Loads the data to a list accesible with a generator defined in the Class.
                             break
                         data_count -= 1
                     
-                    if not timestamp % PERIOD == 0:
+                    if not timestamp % co.PERIOD == 0:
                         raise RuntimeError('Wrong data period!')
 
                     _values = []
@@ -55,7 +59,7 @@ Loads the data to a list accesible with a generator defined in the Class.
 
         # Subtract mooving avarage:
         self.data = []
-        ma = MovingAverage()
+        ma = co.MovingAverage()
         _warmup_time -= 1
         for dat in data:
             timestamp = dat[0]
@@ -75,7 +79,7 @@ Loads the data to a list accesible with a generator defined in the Class.
             
     def reset_generator(self, count=0):
         if count != 0:
-            if isinstance(count, numbers.Number):
+            if isinstance(count, (int, float)):
                 timestamp = int(count)
                 for index in range(len(self.data) - 1, -1, -1):
                     if self.data[index][0] <= timestamp: break
@@ -112,7 +116,7 @@ def plot(count=None):
     x = []
     y = []
     _x = 0
-    deltax = PERIOD / 60
+    deltax = co.PERIOD / 60
     for _xy in plot_values:
         x.append(_x)
         _x += deltax

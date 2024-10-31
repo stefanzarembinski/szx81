@@ -1,12 +1,9 @@
 import sys
-import os
 from os import path
 import numbers
 import time
 import datetime
 import numpy as np
-import csv
-import matplotlib.pyplot as plt
 import scipy.signal as signal
 import setup
 

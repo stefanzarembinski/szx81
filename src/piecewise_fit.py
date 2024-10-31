@@ -1,10 +1,11 @@
+import datetime
 import numpy as np
-
+import matplotlib.pyplot as plt
 from operator import itemgetter
 import scipy.optimize as spo
 from scipy.interpolate import splrep, BSpline
 
-from core import *
+import core as co
 import test_data as td
 
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
@@ -16,7 +17,7 @@ td.set_test_data(
 LIMITS = (0, 250)
 SHIFT = 0
 DATA = td.DATA[LIMITS[0] + SHIFT: LIMITS[1] + SHIFT]
-FILTER = Savgol_filter(window=10, order=2)
+FILTER = co.Savgol_filter(window=10, order=2)
 
 CNDL_COUNT = np.array([i + SHIFT for i in range(len(DATA) + SHIFT)], dtype='float64')
 VALUE = np.array([values[1][0] for values in DATA])
@@ -52,13 +53,14 @@ filtered = FILTER.filter(VALUE)
 
 
 class Splines:
-    def __init__(self, x, y, scale_x=1e-5, number_pieces=10):
+    def __init__(self, x, y, scale_x=1e-5, number_pieces=10, k=1):
         self.x = x if isinstance(x, np.ndarray) else np.array(x, dtype='float64')
         self.scale_x = scale_x
         self.x = self.x * self.scale_x
         self.y = y if isinstance(y, np.ndarray) else np.array(y, dtype='float64')
         self.y = y if isinstance(y, np.ndarray) else np.array(y, dtype='float64')
         self.n = number_pieces
+        self.k = k
         self.params = None
         
     def param_0(self):
@@ -98,21 +100,23 @@ class Splines:
         xy = [list(x) for x in zip(*sorted(zip(xk, yk), key=itemgetter(0)))]
         return xy[0], xy[1]
     
-    def knots(self, params):
-        self.params = params
+    def knots(self, params=None):
+        if params is not None:
+            self.params = params
         xk, yk = self._knots()
         return [x / self.scale_x for x in xk], yk
 
     def _approx(self, x):
         xk, yk = self._knots()
-        bspl = splrep(xk, yk, k=1, s=0)       
+        bspl = splrep(xk, yk, k=self.k, s=0)       
         spl = BSpline(*bspl)
         return spl(x)
     
-    def approx(self, x, params):
-        self.params = params  
+    def approx(self, x, params=None):
+        if params is not None:
+            self.params = params  
         xk, yk = self._knots()
-        bspl = list(splrep(xk, yk, k=1, s=0))
+        bspl = list(splrep(xk, yk, k=self.k, s=0))
         bspl[0] = bspl[0] / self.scale_x
         spl = BSpline(*bspl)
         return spl(x)
@@ -122,28 +126,31 @@ class Splines:
         xk = self._knots()[0][1:-1]
         # return np.array([self.x[0] - min(xk), max(xk) - self.x[-1]])
 
-    def func(self, params):
-            self.params = params
-            self.param_hedge()
-            return self.y - self._approx(self.x)
+    def func(self, params=None):
+            if params is not None:
+                self.params = params
+            return (self.y - self._approx(self.x)) / len(self.y) ** 0.5
 
 class LeastSq:
     def __init__(self, func_class):
         self.func_class = func_class
     
     def run(self):
-        return spo.leastsq(self.func_class.func, self.func_class.param_0())
-    
-optimizer = LeastSq(Splines(CNDL_COUNT, VALUE, scale_x=1e-5, number_pieces=17))
-p, e = optimizer.run()
-# print(p)
-# print(optimizer.func_class.param_0())
- 
-clazz = optimizer.func_class
-plt.plot(CNDL_COUNT, VALUE, color='green', label='data')
-plt.plot(CNDL_COUNT, clazz.approx(CNDL_COUNT, p), color='blue', label='approx')
-plt.scatter(*clazz.knots(clazz.param_0()), color='black', label='param start')
-plt.scatter(*clazz.knots(p), color='orange', label='param final')
+        p, e = spo.leastsq(self.func_class.func, self.func_class.param_0())
+        self.func_class.params = p
+        return p, e
 
-plt.legend()
-plt.show()
+def main():   
+    optimizer = LeastSq(Splines(CNDL_COUNT, VALUE, scale_x=1e-5, number_pieces=17))
+    p, e = optimizer.run()
+    # print(p)
+    # print(optimizer.func_class.param_0())
+    
+    clazz = optimizer.func_class
+    plt.plot(CNDL_COUNT, VALUE, color='green', label='data')
+    plt.plot(CNDL_COUNT, clazz.approx(CNDL_COUNT, p), color='blue', label='approx')
+    plt.scatter(*clazz.knots(clazz.param_0()), color='black', label='param start')
+    plt.scatter(*clazz.knots(p), color='orange', label='param final')
+
+    plt.legend()
+    plt.show()
