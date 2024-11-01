@@ -1,4 +1,5 @@
 import datetime
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from operator import itemgetter
@@ -13,16 +14,6 @@ td.set_test_data(
     data_size=10000, 
     start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(), 
     moving_av=True)
-
-LIMITS = (0, 250)
-SHIFT = 0
-DATA = td.DATA[LIMITS[0] + SHIFT: LIMITS[1] + SHIFT]
-FILTER = co.Savgol_filter(window=10, order=2)
-
-CNDL_COUNT = np.array([i + SHIFT for i in range(len(DATA) + SHIFT)], dtype='float64')
-VALUE = np.array([values[1][0] for values in DATA])
-filtered = FILTER.filter(VALUE)
-
 
 # def piecewise(self, x, params):
 #     self.params = params
@@ -98,13 +89,13 @@ class Splines:
         xk = np.append(xk, self.x[-1])
         yk = np.array(params[self.n:]) 
         xy = [list(x) for x in zip(*sorted(zip(xk, yk), key=itemgetter(0)))]
-        return xy[0], xy[1]
+        return np.array(xy[0]), np.array(xy[1])
     
     def knots(self, params=None):
         if params is None:
             params = self.params
         xk, yk = self._knots(params)
-        return [x / self.scale_x for x in xk], yk
+        return xk / self.scale_x, yk
 
     def _approx(self, x, params):
         if params is None:
@@ -123,17 +114,36 @@ class Splines:
         spl = BSpline(*bspl)
         return spl(x)
 
-    def param_hedge(self):
+    def param_hedge(self, params):
         if params is None:
             params = self.params
         # import pdb; pdb.set_trace()
-        xk = self._knots()[0][1:-1]
-        # return np.array([self.x[0] - min(xk), max(xk) - self.x[-1]])
+        xk = self._knots(params)[0][1:-1]
+        deltax = (self.x[-1] - self.x[0]) / len(self.x) * 3
+        excess = np.array([max(0, self.x[0] - min(xk) + deltax), max(0, max(xk) - self.x[-1] - deltax)])
+        scale = sum(excess) / deltax
+        hedge = excess * len(self.x) * scale ** 4
+        # if sum(np.fabs(hedge)) > 0:
+        #     import pdb; pdb.set_trace()
+        return hedge
 
     def func(self, params=None):
-            if params is not None:
-                self.params = params
-            return (self.y - self._approx(self.x, params)) / len(self.y) ** 0.5
+        if params is not None:
+            self.params = params
+        err = (self.y - self._approx(self.x, params))
+        err_norm = err / len(self.y) ** 0.5
+        
+        return np.append(err_norm, self.param_hedge(params))
+    
+    def accuracy(self, params=None):
+        if params is None:
+            params = self.params
+        y = self._approx(self.x, params)
+        err = (sum((self.y - y) ** 2) / len(self.x)) ** 0.5
+        # import pdb; pdb.set_trace()
+        mean = sum(np.fabs(y)) / len(self.x)
+        return err / mean
+
 
 class LeastSq:
     def __init__(self, func_class):
@@ -144,14 +154,24 @@ class LeastSq:
         self.func_class.params = p
         return p, e
 
-def main():   
+
+def main():
+    LIMITS = (0, 1250)
+    SHIFT = 0
+    DATA = td.DATA[LIMITS[0] + SHIFT: LIMITS[1] + SHIFT]
+    FILTER = co.Savgol_filter(window=10, order=2)
+
+    CNDL_COUNT = np.array([i + SHIFT for i in range(len(DATA) + SHIFT)], dtype='float64')
+    VALUE = np.array([values[1][0] for values in DATA])
+    filtered = FILTER.filter(VALUE)
+
     optimizer = LeastSq(Splines(CNDL_COUNT, VALUE, scale_x=1e-5, number_pieces=17))
     p, e = optimizer.run()
     # print(p)
     # print(optimizer.func_class.param_0())
     
     clazz = optimizer.func_class
-    print(clazz.func())
+    print(f'accuracy: {clazz.accuracy() * 100}%')
     plt.plot(CNDL_COUNT, VALUE, color='green', label='data')
     plt.plot(CNDL_COUNT, clazz.approx(CNDL_COUNT, p), color='blue', label='approx')
     plt.scatter(*clazz.knots(clazz.param_0()), color='black', label='param start')
