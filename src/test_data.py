@@ -56,6 +56,8 @@ Loads the data to a list accesible with a generator defined in the Class.
         data_map = sorted(self.data_map.items())
         # Subtract mooving avarage:
         self.data = []
+
+
         ma = co.MovingAverage()
         _warmup_time -= 1
         previous = None
@@ -63,20 +65,23 @@ Loads the data to a list accesible with a generator defined in the Class.
             timestamp = dat[0]
             value = dat[1]
             if value == previous:
+                # import pdb; pdb.set_trace()
                 continue
+            # import pdb; pdb.set_trace()
             previous = value
             mean_value = 0
             if moving_av:
                 ma.add((value[0][0] + value[1][0]) / 2)
-                # import pdb; pdb.set_trace()
-                mean_value = ma.ma()   
                 _warmup_time -= 1
                 if _warmup_time > 0:
                     continue
-
+                mean_value = ma.ma()
+            
             self.data.append((timestamp, 
                               ([val - mean_value  for val in value[0]], 
                                [val - mean_value for val in value[1]])))
+        if len(self.data) < 10:
+            raise RuntimeError('The resulting data count is very small!')
 
     def read_data_files(self, direction):
         start_time = self.start_time
@@ -132,7 +137,7 @@ def set_test_data(data_size=3000, start_time=None, moving_av=True):
     DATA = TestData(data_count=data_size, start_time=start_time, moving_av=moving_av).data
     VALUE = np.array([(values[1][0][0], values[1][1][0]) for values in DATA])
     TIMESTAMP = np.array([values[0] for values in DATA])
-    print(f'Test data size is {len(DATA)}')
+    print(f'Test data size (flats are duducted) is {len(DATA)}')
     print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
     print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')
     print(f'Subtracting moving avarage: {moving_av}')
@@ -167,7 +172,7 @@ def plot(count=None):
 
 def main():
     set_test_data(
-    data_size=600, 
+    data_size=10000, 
     start_time=datetime.datetime(2023, 1, 20, 13, 38).timestamp(),
     moving_av=True
     )
