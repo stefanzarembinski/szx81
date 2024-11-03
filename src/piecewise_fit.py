@@ -1,6 +1,9 @@
 import datetime
+import sys
 import math
 import numpy as np
+# import warnings
+# warnings.filterwarnings("error")
 import matplotlib.pyplot as plt
 from operator import itemgetter
 import scipy.optimize as spo
@@ -8,12 +11,14 @@ from scipy.interpolate import splrep, BSpline
 
 import core as co
 import test_data as td
+import leastsqbound as lb
 
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
-td.set_test_data(
-    data_size=10000, 
-    start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(), 
-    moving_av=True)
+if td.DATA is None:
+    td.set_test_data(
+        data_size=10000, 
+        start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(), 
+        moving_av=True)
 
 # def piecewise(self, x, params):
 #     self.params = params
@@ -71,7 +76,7 @@ class Splines:
                 xk.append(self.x[i])
 
         if len(xk) != self.n + 1:
-            raise Exception(f'Parameter 0 failure! Too many pieces ({self.n})?')
+            raise Exception(f'Parameter 0 failure! Too many pieces ({self.n})?, sep: {sep}')
         
         ik.append(len(self.x) - 1)
         xk.append(x_1)
@@ -84,6 +89,7 @@ class Splines:
         return np.array(param)
     
     def _knots(self, params):
+        params = params if type(params) is np.ndarray else params.x
         xk = np.array(params[:self.n])
         xk = np.insert(xk, 0, self.x[0])
         xk = np.append(xk, self.x[-1])
@@ -103,6 +109,7 @@ class Splines:
         xk, yk = self._knots(params)
         bspl = splrep(xk, yk, k=self.k, s=0)       
         spl = BSpline(*bspl)
+        self.params = params
         return spl(x)
     
     def approx(self, x, params=None): 
@@ -113,28 +120,12 @@ class Splines:
         bspl[0] = bspl[0] / self.scale_x
         spl = BSpline(*bspl)
         return spl(x)
-
-    def param_hedge(self, params):
-        if params is None:
-            params = self.params
-        # import pdb; pdb.set_trace()
-        xk = self._knots(params)[0][1:-1]
-        deltax = (self.x[-1] - self.x[0]) / len(self.x) * 3
-        excess = np.array([max(0, self.x[0] - min(xk) + deltax), max(0, max(xk) - self.x[-1] - deltax)])
-        scale = sum(excess) / deltax
-        hedge = excess * len(self.x) * scale ** 4
-        # if sum(np.fabs(hedge)) > 0:
-        #     import pdb; pdb.set_trace()
-        return hedge
-
-    def func(self, params=None):
-        if params is not None:
-            self.params = params
-        err = (self.y - self._approx(self.x, params))
-        err_norm = err / len(self.y) ** 0.5
-        
-        return np.append(err_norm, self.param_hedge(params))
     
+    def bounds(self):
+        deltax = 0 # (self.x[-1] - self.x[0]) / len(self.x) * 3
+        bounds = [(self.x[0] + deltax, self.x[-1] - deltax)] * self.n
+        return bounds + [(None, None)] * (self.n + 2)
+         
     def accuracy(self, params=None):
         if params is None:
             params = self.params
@@ -144,35 +135,65 @@ class Splines:
         mean = sum(np.fabs(y)) / len(self.x)
         return err / mean
 
+    def func(self, params, x=None, y=None):
+        retval = self.y - self._approx(self.x, params)
+        return retval
+    
 
-class LeastSq:
+class Fitter:
     def __init__(self, func_class):
         self.func_class = func_class
     
     def run(self):
-        p, e = spo.leastsq(self.func_class.func, self.func_class.param_0())
+        try:
+            p, _ = lb.leastsqbound(
+                func=self.func_class.func,
+                x0=self.func_class.param_0(),
+                args=(self.func_class.x, self.func_class.y),
+                bounds=self.func_class.bounds()
+            )
+        except RuntimeWarning as ex:
+            # p, _ = lb.leastsqbound(
+            #     func=self.func_class.func,
+            #     x0=self.func_class.params,
+            #     args=(self.func_class.x, self.func_class.y)
+            # )
+            import pdb; pdb.set_trace()
+            p = self.func_class.params
+
+
+
+        # def func(params):
+        #     return sum(self.func_class.func(params) ** 2)
+        # p = spo.minimize(
+        
+        #     fun=func, 
+        #     x0=self.func_class.param_0(),
+        #     bounds=self.func_class.bounds())
+        # p = p if type(p) == np.ndarray else p.x
+
         self.func_class.params = p
-        return p, e
+        return p
 
 
 def main():
-    LIMITS = (0, 1250)
+    LIMITS = (0, 120)
     SHIFT = 0
     DATA = td.DATA[LIMITS[0] + SHIFT: LIMITS[1] + SHIFT]
-    FILTER = co.Savgol_filter(window=10, order=2)
+    FILTER = co.Savgol_filter(window=5, order=2)
 
     CNDL_COUNT = np.array([i + SHIFT for i in range(len(DATA) + SHIFT)], dtype='float64')
     VALUE = np.array([values[1][0] for values in DATA])
     filtered = FILTER.filter(VALUE)
 
-    optimizer = LeastSq(Splines(CNDL_COUNT, VALUE, scale_x=1e-5, number_pieces=17))
-    p, e = optimizer.run()
+    optimizer = Fitter(Splines(CNDL_COUNT, filtered, scale_x=1e-1, number_pieces=15))
+    p = optimizer.run()
     # print(p)
     # print(optimizer.func_class.param_0())
     
     clazz = optimizer.func_class
-    print(f'accuracy: {clazz.accuracy() * 100}%')
-    plt.plot(CNDL_COUNT, VALUE, color='green', label='data')
+    # print(f'accuracy: {clazz.accuracy() * 100}%')
+    plt.plot(CNDL_COUNT, filtered, color='green', label='data')
     plt.plot(CNDL_COUNT, clazz.approx(CNDL_COUNT, p), color='blue', label='approx')
     plt.scatter(*clazz.knots(clazz.param_0()), color='black', label='param start')
     plt.scatter(*clazz.knots(p), color='orange', label='param final')
