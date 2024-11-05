@@ -89,7 +89,7 @@ Loads the data to a list accesible with a generator defined in the Class.
         timestring_format = co.config.CONFIG['timestring']
 
         for data_file in self.directions[direction]:
-            # import pdb; pdb.set_trace()
+            
             with open(path.join(self.data_dir, data_file[2]), newline='') as csvfile:
                 spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
                 next(spamreader)
@@ -116,12 +116,16 @@ Loads the data to a list accesible with a generator defined in the Class.
                     _values = []
                     for i in range(1, len(values) - 1):
                         _values.append(float(values[i]))
+                    
+                    volume = float(values[-1])
 
                     if timestamp in self.data_map:
+                        # import pdb; pdb.set_trace()
                         self.data_map[timestamp][direction] = _values
                     else:
-                        entry = [None] * 2
+                        entry = [None] * 3
                         entry[direction] = _values
+                        entry[2] = volume
                         self.data_map[timestamp] = entry
           
 
