@@ -9,3 +9,5 @@ src/__pycache__/core.cpython-310.pyc
 *.pyc
 temp.txt
 src/kubusia/gasnace_swieczki copy.ipynb
+.vscode/settings.json
+src/word_embeddings_tutorial.ipynb

@@ -12,7 +12,7 @@ import test_data as td
 
 if td.DATA is None:
     td.set_test_data(
-    data_size=5000, 
+    data_count=5000, 
     start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(),
     moving_av=False
     )
@@ -151,7 +151,7 @@ class PlotBoth(Plot):
         self.value_fut = VALUE[time_start + CURRENT_RANGE: time_start + CURRENT_RANGE + FUTURE_RANGE]
         self.value_fut = self.value_fut - self.value_fut[0]
         self.time_fut = np.array([i for i in range(len(self.value_fut))], dtype='float64')
-        
+
         self.timestamp = TIMESTAMP[time_start + CURRENT_RANGE]
         
     def plot(self):
@@ -164,7 +164,6 @@ class PlotBoth(Plot):
         self.plotter.axvline(x=2, color='black', linestyle='--', linewidth=1)
         self.off()
         self.plotter.axis([-CURRENT_RANGE, FUTURE_RANGE, Y_RANGE[0], Y_RANGE[1]])
-
 
 def dwa_obrazki(time_start=0, axis_off=False):
     fig, (current, both) = plt.subplots(1, 2, figsize=(10, 5))

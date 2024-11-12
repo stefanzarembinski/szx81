@@ -14,12 +14,6 @@ import test_data as td
 import leastsqbound as lb
 
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
-if td.DATA is None:
-    td.set_test_data(
-        data_size=10000, 
-        start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(), 
-        moving_av=True)
-
 # def piecewise(self, x, params):
 #     self.params = params
 #     xk, yk = _Piecewise._approx(x, *params)
@@ -49,13 +43,13 @@ if td.DATA is None:
 
 
 class Splines:
-    def __init__(self, x, y, scale_x=1e-5, number_pieces=10, k=1):
+    def __init__(self, x, y, y_raw, scale_x=1e-5, number_pieces=10, k=1):
         self.x = x if isinstance(x, np.ndarray) else np.array(x, dtype='float64')
         self.scale_x = scale_x
         self.x = self.x * self.scale_x
         self.y = y if isinstance(y, np.ndarray) else np.array(y, dtype='float64')
-        self.y = y if isinstance(y, np.ndarray) else np.array(y, dtype='float64')
-        self.n = number_pieces
+        self.y_raw = y_raw if isinstance(y_raw, np.ndarray) else np.array(y_raw, dtype='float64')
+        self.n = int(number_pieces)
         self.k = k
         self.params = None
         
@@ -102,8 +96,18 @@ class Splines:
             params = self.params
         xk, yk = self._knots(params)
         return xk / self.scale_x, yk
+    
+    def temperature(self, params=None):
+        if params is None:
+            params = self.params
+        noise = self.func(params, y_row=self.y_raw)
+        xk, _ = self.knots(params)
+        tk = []
+        for i in range(1, len(xk)):
+            tk.append(sum(noise[int(xk[i-1]): int(xk[i])] ** 2) ** .5 / (xk[i] - xk[i-1]))
+        return np.array(tk)
 
-    def _approx(self, x, params):
+    def _approx(self, x, params): 
         if params is None:
             params = self.params
         xk, yk = self._knots(params)
@@ -135,9 +139,10 @@ class Splines:
         mean = sum(np.fabs(y)) / len(self.x)
         return err / mean
 
-    def func(self, params, x=None, y=None):
-        retval = self.y - self._approx(self.x, params)
-        return retval
+    def func(self, params, x=None, y=None, y_row=None):
+        if y_row is None:
+            return self.y - self._approx(self.x, params)
+        return y_row - self._approx(self.x, params)
     
 
 class Fitter:
@@ -175,28 +180,32 @@ class Fitter:
         self.func_class.params = p
         return p
 
+def piecewise(
+        value, filter=co.Savgol_filter(window=50, order=8),
+        scale_x=1e-6, number_pieces=10, k=1):
+    filtered = value
+    if filter is not None:
+        filtered = filter.filter(value)
+    piecewise = Fitter(Splines(
+        x=np.arange(-len(value) + 1, 1), 
+        y=filtered, y_raw=value,
+        scale_x=scale_x, number_pieces=number_pieces, k=k) )
+    piecewise.run()
+    return piecewise.func_class
 
 def main():
-    LIMITS = (0, 120)
-    SHIFT = 0
-    DATA = td.DATA[LIMITS[0] + SHIFT: LIMITS[1] + SHIFT]
-    FILTER = co.Savgol_filter(window=5, order=2)
-
-    CNDL_COUNT = np.array([i + SHIFT for i in range(len(DATA) + SHIFT)], dtype='float64')
-    VALUE = np.array([values[1][0] for values in DATA])
-    filtered = FILTER.filter(VALUE)
-
-    optimizer = Fitter(Splines(CNDL_COUNT, filtered, scale_x=1e-1, number_pieces=15))
-    p = optimizer.run()
-    # print(p)
-    # print(optimizer.func_class.param_0())
+    td.set_test_data(
+        data_count=10000, 
+        start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(), 
+        moving_av=True)
     
-    clazz = optimizer.func_class
-    # print(f'accuracy: {clazz.accuracy() * 100}%')
-    plt.plot(CNDL_COUNT, filtered, color='green', label='data')
-    plt.plot(CNDL_COUNT, clazz.approx(CNDL_COUNT, p), color='blue', label='approx')
-    plt.scatter(*clazz.knots(clazz.param_0()), color='black', label='param start')
-    plt.scatter(*clazz.knots(p), color='orange', label='param final')
+    value = co.Savgol_filter(window=15, order=8).filter([_[0] for _ in td.VALUE][0: 120])
+    clazz = piecewise(value, filter=None, number_pieces=10, k=1)
+    
+    cndl_count = np.arange(-len(value) + 1, 1)
+    plt.plot(cndl_count, value, color='green', label='data', linewidth='0.5')
+    plt.plot(cndl_count, clazz.approx(cndl_count), color='blue', label='approx')
+    plt.scatter(*clazz.knots(), color='orange', label='param final')
 
     plt.legend()
     plt.show()

@@ -7,6 +7,7 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 import core as co
+from core import config
 
 class TestData:
     """
@@ -20,7 +21,7 @@ Loads the data to a list accesible with a generator defined in the Class.
         if data_count is not None:
             data_count += _warmup_time
         if start_time is not None:
-            start_time -= _warmup_time * co.PERIOD * 60
+            start_time -= _warmup_time * config.PERIOD * 60
         self.data_count = data_count
         self.start_time = start_time
         
@@ -31,13 +32,13 @@ Loads the data to a list accesible with a generator defined in the Class.
         
         for data_file in os.listdir(self.data_dir):
             
-            rex = co.config.CONFIG['file_format']
+            rex = co.config.FILE_FORMAT
             pair, direction, date_from, date_till = re.match(rex, data_file).groups()
             if pair != co.SETUP['forex']:
                 raise RuntimeError('Wrong forex currency pair!')
-            strptime = datetime.datetime.strptime(date_from, co.config.CONFIG['filename_timestring'])
+            strptime = datetime.datetime.strptime(date_from, co.config.FILENAME_TIMESTRING)
             timestamp_from = time.mktime(strptime.timetuple())
-            strptime = datetime.datetime.strptime(date_till, co.config.CONFIG['filename_timestring'])
+            strptime = datetime.datetime.strptime(date_till, co.config.FILENAME_TIMESTRING)
             timestamp_till = time.mktime(strptime.timetuple())
             # import pdb; pdb.set_trace()
             files = ask_files if direction == 'ASK' else bid_files
@@ -86,7 +87,7 @@ Loads the data to a list accesible with a generator defined in the Class.
     def read_data_files(self, direction):
         start_time = self.start_time
         data_count = self.data_count
-        timestring_format = co.config.CONFIG['timestring']
+        timestring_format = config.TIME_STRING
 
         for data_file in self.directions[direction]:
             
@@ -110,7 +111,7 @@ Loads the data to a list accesible with a generator defined in the Class.
                             break
                         data_count -= 1
                     
-                    if not timestamp % co.PERIOD == 0:
+                    if not timestamp % config.PERIOD == 0:
                         raise RuntimeError('Wrong data period!')
 
                     _values = []
@@ -133,12 +134,12 @@ DATA = None
 VALUE = None
 TIMESTAMP = None
 
-def set_test_data(data_size=3000, start_time=None, moving_av=True):
+def set_test_data(data_count=3000, start_time=None, moving_av=True):
     global DATA
     global VALUE
     global TIMESTAMP
 
-    DATA = TestData(data_count=data_size, start_time=start_time, moving_av=moving_av).data
+    DATA = TestData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
     VALUE = np.array([(values[1][0][0], values[1][1][0]) for values in DATA])
     TIMESTAMP = np.array([values[0] for values in DATA])
     print(f'Test data size (flats are duducted) is {len(DATA)}')
@@ -153,7 +154,7 @@ def plot(count=None):
     bid = []
     diff = []
     _x = 0
-    deltax = co.PERIOD / 60
+    deltax = config.PERIOD / 60
     for _xy in plot_values:
         x.append(_x)
         _x += deltax
@@ -176,7 +177,7 @@ def plot(count=None):
 
 def main():
     set_test_data(
-    data_size=10000, 
+    data_count=10000, 
     start_time=datetime.datetime(2023, 1, 20, 13, 38).timestamp(),
     moving_av=True
     )
