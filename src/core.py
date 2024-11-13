@@ -1,9 +1,6 @@
 import sys
 from os import path
-import numbers
-import time
-import datetime
-import numpy as np
+import importlib
 import scipy.signal as signal
 import setup
 
@@ -11,9 +8,11 @@ SETUP = setup.CONFIG
 TEST_DATA_DIR = path.join(path.dirname(__file__), '../', SETUP['forex'])
 sys.path.append(TEST_DATA_DIR)
 import config # type: ignore
+importlib.reload(config)
 
 TEST_DATA = 'test_data'
 WARMUP_TIME = config.MA_WINDOW_SIZE # min
+DATA_STORE = path.join(TEST_DATA_DIR, config.DATA_STORE)
 
 class MovingAverage:
     

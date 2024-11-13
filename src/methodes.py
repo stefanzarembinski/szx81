@@ -1,4 +1,5 @@
-import datetime
+import collections
+from os import path
 import math
 import numpy as np
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
@@ -147,14 +148,44 @@ diff: {(self.bid()[0] - min(self.ask())) / Forecast.PIP:.1f}
         plt.show()
 
 class Tokenizer:
-    avarage_time = 12
-    window = avarage_time * 10
+    number_pieces = 10
+    window = 120
     margin = 0.05
     time_qizer = None
     value_qizer = None
     temperature_qizer = None
     filter = co.Savgol_filter(window=50, order=5)
+    none_word = '0000'
+
+    def save_words(words):
+        with open(
+            path.join(
+                co.DATA_STORE, 
+                f'words_{Tokenizer.window}_{Tokenizer.number_pieces}.txt'), 'w') as f:
+            for word in words:
+                f.write(f'{str(word)}\n')
+
+    def get_words_from_file():
+        words = []
+        with open(
+            path.join(
+                co.DATA_STORE, 
+                f'words_{Tokenizer.window}_{Tokenizer.number_pieces}.txt'), 'r') as f:
+            for line in f:
+                words.append(eval(line[:-1]))
+
+    def get_sentence_str(sequence, words=None):
+        retval = [f'{oct(time)[2:]}{oct(temp)[2:]}{oct(value)[2:].rjust(2, "0")}' 
+                for (time, temp, value) in sequence]
+        if words is not None:
+            retval = [_ if _ in words else Tokenizer.none_word for _ in retval]
+        return retval
     
+    def get_sentence_bytes(sequence):
+        bytes = []
+        for (time, temp, value) in sequence:
+            bytes.extend([time + 8 * temp, value])
+        return bytes
     def __init__(self, value_limits):
         self.value_limits = value_limits
         self.clazz = None
@@ -177,7 +208,7 @@ class Tokenizer:
             clazz = ls.piecewise(
                 value=[(_[0] + _[1]) / 2 for _ in self.value_limits[shift: shift + Tokenizer.window]], 
                 filter=Tokenizer.filter, 
-                number_pieces=Tokenizer.window / Tokenizer.avarage_time)
+                number_pieces=Tokenizer.number_pieces)
             xk, yk = clazz.knots()
             time_set.extend(np.diff(xk))
             value_set.extend(yk)
@@ -186,22 +217,13 @@ class Tokenizer:
         
         Tokenizer.time_qizer =  Quantizator(limit(time_set))
         Tokenizer.value_qizer = Quantizator(limit(value_set))
+        
         Tokenizer.temperature_qizer = Quantizator(limit(temperature_set))
 
-    def get_sentence_str(sequence):
-        return [f'{oct(time)[2:]}{oct(temp)[2:]}{oct(value)[2:].rjust(2, "0")}' 
-                for (time, temp, value) in sequence]
-    
-    def get_sentence_bytes(sequence):
-        bytes = []
-        for (time, temp, value) in sequence:
-            bytes.extend([time + 8 * temp, value])
-        return bytes
-
-    def get_sentence(self, value):
+    def get_sentence(self, value, save=False):
         self.clazz = ls.piecewise(
             value=[(_[0] + _[1]) / 2 for _ in value], 
-            filter=Tokenizer.filter, number_pieces=len(value) // Tokenizer.avarage_time)
+            filter=Tokenizer.filter, number_pieces=Tokenizer.number_pieces)
         time_set, value_set = self.clazz.knots()
         self.time_part = [time_set[i] - time_set[i-1] for i in range(1, len(time_set))]
         time_qu = Tokenizer.time_qizer.quantize(self.time_part)
@@ -210,7 +232,11 @@ class Tokenizer:
         value_qu = Tokenizer.value_qizer.quantize(self.value_part)
         temp_qu = Tokenizer.temperature_qizer.quantize(self.temp_part)
         # import pdb; pdb.set_trace()
-        return [(time_qu[i], temp_qu[i], value_qu[i]) for i in range(len(time_qu))]
+        retval = [(time_qu[i], temp_qu[i], value_qu[i]) for i in range(len(time_qu))]
+        if save:
+            words = collections.Counter(Tokenizer.get_sentence_str(retval)).most_common()
+            Tokenizer.save_words(words)
+        return retval
 
 class Quantizator:
     def __init__(self, limit, level_count=8):

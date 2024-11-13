@@ -101,10 +101,16 @@ class Splines:
         if params is None:
             params = self.params
         noise = self.func(params, y_row=self.y_raw)
-        xk, _ = self.knots(params)
+        xk, _ = self._knots(params)
+        indx = [(np.abs(self.x - xk[i])).argmin() for i in range(len(xk))]
         tk = []
         for i in range(1, len(xk)):
-            tk.append(sum(noise[int(xk[i-1]): int(xk[i])] ** 2) ** .5 / (xk[i] - xk[i-1]))
+            dist = math.fabs(indx[i-1] - indx[i])
+            if dist == 0:
+                tk.append(.0)
+                continue
+            tk.append((sum(noise[indx[i-1]: indx[i]] ** 2) / dist)** .5)
+        # import pdb; pdb.set_trace()
         return np.array(tk)
 
     def _approx(self, x, params): 

@@ -7,4 +7,5 @@ FILE_FORMAT = '(?P<pair>EURUSD)_Candlestick_1_M_(?P<direction>\\w{3})_(?P<from>\
 FORECAST_WINDOW = 30
 FORECAST_THRESHOLD = 3e-4
 PIP = 1e-4
+DATA_STORE = 'data_store'
 
