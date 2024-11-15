@@ -12,3 +12,4 @@ src/kubusia/gasnace_swieczki copy.ipynb
 .vscode/settings.json
 src/word_embeddings_tutorial.ipynb
 EURUSD/data_store/words_120_10.txt
+EURUSD/data_store

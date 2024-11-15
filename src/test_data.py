@@ -31,7 +31,6 @@ Loads the data to a list accesible with a generator defined in the Class.
         bid_files = []
         
         for data_file in os.listdir(self.data_dir):
-            
             rex = co.config.FILE_FORMAT
             pair, direction, date_from, date_till = re.match(rex, data_file).groups()
             if pair != co.SETUP['forex']:
@@ -77,10 +76,10 @@ Loads the data to a list accesible with a generator defined in the Class.
                 if _warmup_time > 0:
                     continue
                 mean_value = ma.ma()
-            
+            volume = dat[1][2]
             self.data.append((timestamp, 
                               ([val - mean_value  for val in value[0]], 
-                               [val - mean_value for val in value[1]])))
+                               [val - mean_value for val in value[1]]), volume ))
         if len(self.data) < 10:
             raise RuntimeError('The resulting data count is very small!')
 
