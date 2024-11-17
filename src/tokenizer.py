@@ -25,113 +25,9 @@ class Tokenizer:
     none_word = '0000'
 
     def __init__(self):
-        self.clazz = None
-        self.time_part = None
-        self.value_part = None
-        self.temp_part = None
-
-    def save_data(data):
-        with open(path.join(
-                co.DATA_STORE, 
-                f'data_{Tokenizer.window}_{Tokenizer.number_pieces}.pkl'), 'wb') as f:
-            pickle.dump(data, f)
-
-    def get_data_from_file(set_levels=True):  
-        try:   
-            with open(
-                path.join(
-                    co.DATA_STORE, 
-                    f'data_{Tokenizer.window}_{Tokenizer.number_pieces}.pkl'), 'rb') as f:
-                data = pickle.load(f)
-        except:
-            return None
-        return data
+        pass
     
-    def save_levels(time_stat, value_stat, temperature_stat, set_levels=False):
-        """Derives quantization levels from data statistics and save them 
-        to file.
-
-        Parameters
-        ----------
-        time_stat, value_stat, temperature_stat : Data statistics as returned 
-            from :py:func:`Tokenizer.get_statistics`
-
-        set_levels : Write levels to Tokenizer definitions
-
-        Returns
-        -------
-        time_level, value_level, temperature_level : Quantization levels.
-        """
-        time_level, value_level, temperature_level = Tokenizer.set_quantization_levels(
-            time_stat, value_stat, temperature_stat, set_levels)
-        
-        with open(path.join(
-                co.DATA_STORE, 
-                f'levels_{Tokenizer.window}_{Tokenizer.number_pieces}.pkl'), 'wb') as f:
-            pickle.dump((time_level, value_level, temperature_level), f)
-
-        return time_level, value_level, temperature_level
-
-    def get_levels_from_file(set_levels=True):
-        """Loads quantization levels from file
-
-        Parameters
-        ----------
-        set : Write levels to Tokenizer definitions
-
-        Returns
-        -------
-        time_level, value_level, temperature_level : Quantization levels.
-        """     
-        with open(
-            path.join(
-                co.DATA_STORE, 
-                f'levels_{Tokenizer.window}_{Tokenizer.number_pieces}.pkl'), 'rb') as f:
-            time_levels, value_levels, temperature_levels = pickle.load(f)
-
-        if set_levels:
-            Tokenizer.time_levels = time_levels
-            Tokenizer.value_levels = value_levels
-            Tokenizer.temperature_levels = temperature_levels
-        
-        return time_levels, value_levels, temperature_levels
-
-    def save_story(whole_story):
-        whole_story = Tokenizer.get_sentence_str(whole_story)
-        with open(
-            path.join(co.DATA_STORE, f'whole_story_{Tokenizer.window}_{Tokenizer.number_pieces}.txt'), 'w') as f:
-            for word in whole_story:
-                f.write(f'{str(word)}\n')
-
-    def get_story_from_file():
-        words = []
-        with open(
-            path.join(
-                co.DATA_STORE, 
-                f'whole_story_{Tokenizer.window}_{Tokenizer.number_pieces}.txt'), 'r') as f:
-            for line in f:
-                words.append(line[:-1])
-        return words
-
-    def save_words(words):
-        with open(
-            path.join(
-                co.DATA_STORE, 
-                f'words_{Tokenizer.window}_{Tokenizer.number_pieces}.txt'), 'w') as f:
-            for word in words:
-                f.write(f'{str(word)}\n')
-
-    def get_words_from_file():
-        words = []
-        with open(
-            path.join(
-                co.DATA_STORE, 
-                f'words_{Tokenizer.window}_{Tokenizer.number_pieces}.txt'), 'r') as f:
-            for line in f:
-                words.append(eval(line[:-1]))
-        return words
-    
-    def get_statistics(data, bins=20):
+    def get_statistics(data, bins=100, force=False):
         """Provides statistics of the token attributes: `time`, `value`, `temperature`.
 
         Parameters
@@ -139,6 +35,7 @@ class Tokenizer:
         data : List of tuples, each consisted of a timestamp, tuple of two 
             (ASK and BID) candles, and volume.
         bins : The number of histogram bins.
+        force : If set, do not reload statistics from file.
 
         Returns
         -------- 
@@ -146,22 +43,36 @@ class Tokenizer:
         value_stat : tuple ``(hist, bin_edges)`` for 'value' statistics.
         temperature_stat : tuple ``(hist, bin_edges)`` for 'temperature' statistics.
         """        
-        shift = 0
+        
+        file = path.join(
+            co.DATA_STORE, 
+            f'statistics_{Tokenizer.window}_{Tokenizer.number_pieces}.pkl')
+        
         time_set = []
         value_set = []
-        temperature_set = []
+        temperature_set = []  
+        # import pdb; pdb.set_trace()
+        if not force and path.exists(file):
+            with open(file, 'rb') as f: 
+                time_set, value_set, temperature_set = pickle.load(f) 
+               
+        if (len(time_set) == 0) or (len(value_set) == 0) or (len(temperature_set) == 0):
+            shift = 0
+            while shift + Tokenizer.window < len(data):
+                clazz = ls.piecewise(
+                    value=[(_[1][0][0] + _[1][0][1]) / 2 for _ in data[shift: shift + Tokenizer.window]], 
+                    filter=Tokenizer.filter, 
+                    number_pieces=Tokenizer.number_pieces)
+                xk, yk = clazz.knots()
+                time_set.extend(np.diff(xk))
+                value_set.extend(yk)
+                temperature_set.extend(clazz.temperature())
+                shift += Tokenizer.window
 
-        while shift + Tokenizer.window < len(data):
-            clazz = ls.piecewise(
-                value=[(_[1][0][0] + _[1][0][1]) / 2 for _ in data[shift: shift + Tokenizer.window]], 
-                filter=Tokenizer.filter, 
-                number_pieces=Tokenizer.number_pieces)
-            xk, yk = clazz.knots()
-            time_set.extend(np.diff(xk))
-            value_set.extend(yk)
-            temperature_set.extend(clazz.temperature())
-            shift += Tokenizer.window
-        
+            with open(file, 'wb') as f: 
+                pickle.dump((time_set, value_set, temperature_set), f) 
+            # with open(file, 'rb') as f: time_set_, value_set_, temperature_set_ = pickle.load(f)
+
         return (
             (np.histogram(time_set, bins=bins, density=True)),
             (np.histogram(value_set, bins=bins, density=True)),
@@ -174,7 +85,7 @@ class Tokenizer:
         if x < 0: retval *= -1
         return retval
 
-    def set_quantization_levels(time_stat, value_stat, temperature_stat, set=True):
+    def set_quantization_levels(time_stat, value_stat, temperature_stat):
         def histogram(hist, bin_edges, level_count):
             hist_cum = hist.cumsum()
             hist_cum = hist_cum / hist_cum[-1]
@@ -191,14 +102,10 @@ class Tokenizer:
         value_levels = histogram(*value_stat, 2 * Tokenizer.level_count)
         temperature_levels = histogram(*temperature_stat, Tokenizer.level_count)
 
-        if set:
-            Tokenizer.time_levels = time_levels
-            Tokenizer.value_levels = value_levels
-            Tokenizer.temperature_levels = temperature_levels
-
-        return time_levels, value_levels, temperature_levels
+        Tokenizer.time_levels = time_levels
+        Tokenizer.value_levels = value_levels
+        Tokenizer.temperature_levels = temperature_levels
  
-
     def quantize(x, levels):
         """Returns given array quantized according to given levels.
 
@@ -224,10 +131,9 @@ class Tokenizer:
                     return levels[i]
         return np.array([do(_) for _ in x])
 
-    def get_sentence(self, data):
-        """Converts a short chunk of data into tokens. but only if the quantization
-        limits are already  
-
+    def get_sentence(data):
+        """Converts a short chunk of data into tokens.
+        
         Parameters
         ----------
         data : List of tuples, each consisted of a timestamp, tuple of two 
@@ -235,7 +141,7 @@ class Tokenizer:
         
         Returns
         -------
-        token_timestamp : List of tuples, each having the token and its timestamp.
+        token : List of tokens.
 
         Notes
         -----
@@ -269,28 +175,25 @@ class Tokenizer:
         
         """
         
-        self.clazz = ls.piecewise(
+        clazz = ls.piecewise(
             value=[(_[1][0][0] + _[1][0][1]) / 2 for _ in data], 
             filter=Tokenizer.filter, number_pieces=Tokenizer.number_pieces)
         
-        time_set, value_set = self.clazz.knots()
-        self.time_part = [time_set[i] - time_set[i-1] for i in range(1, len(time_set))]
-        time_qu = Tokenizer.quantize(self.time_part, Tokenizer.time_levels)
-        time0 = data[0][0]
-        time_qu_abs = np.cumsum(time_qu) * config.PERIOD + time0
-
-        self.value_part = [value_set[i] for i in range(1, len(value_set))]
-        import pdb; pdb.set_trace()
-        value_qu = Tokenizer.quantize(self.value_part, Tokenizer.value_levels)
+        time_set, value_set = clazz.knots()
+        time_part = [time_set[i] - time_set[i-1] for i in range(1, len(time_set))]
+        time_qu = Tokenizer.quantize(time_part, Tokenizer.time_levels)
         
-        self.temp_part = self.clazz.temperature()
-        temp_qu = Tokenizer.quantize(self.temp_part, Tokenizer.temperature_levels)
+        value_part = [value_set[i] for i in range(1, len(value_set))]
+        value_qu = Tokenizer.quantize(value_part, Tokenizer.value_levels)
         
-        token = [((round(time_qu[i], 1), value_qu[i], temp_qu[i]), 
-                  round(time_qu_abs[i])) for i in range(len(time_qu))]
-        return token
+        # import pdb; pdb.set_trace()        
+        temp_part = clazz.temperature()
+        temp_qu = Tokenizer.quantize(temp_part, Tokenizer.temperature_levels)
+        
+        return [(round(time_qu[i], 1), value_qu[i], temp_qu[i]) 
+                                                    for i in range(len(time_qu))]
     
-    def get_whole_story(data, save=False, window=120):
+    def get_whole_story(data, window=None, force_save=False):
         """Converts data into tokens.
 
         Parameters
@@ -303,13 +206,14 @@ class Tokenizer:
 
         Returns
         -------
-        token_timeshot : List of tuples, each having the token and its timestamp.
+        token : List of tokens.
 
         Notes
         -----
         Takes a list of tuples, each consisted of a timestamp, tuple of two 
         (ASK and BID) candles, and volume e.g:
         
+        ```
             (
                 1672841640.0, 
                 (
@@ -318,30 +222,43 @@ class Tokenizer:
                 ), 
                 1055900.0244
             )
+        ```
 
-        Produces a list of tuples, each having the token and its timestamp e.g:
+        Produces a list of tokens e.g:
 
-            (
-                (
-                    19.14, 4.83e-05, -0.00727
-                ), 
-                1672782932.5137246
-            )
+        ```
+            (19.14, 4.83e-05, -0.00727)
+        ```
 
         """
-        tokenizer = Tokenizer(data)
-        Tokenizer.set_quantization_levels(*Tokenizer.get_statistics(data, bins=50)) 
 
-        shift = 0
-        token_plus = []
-        data = td.DATA
-        while shift + window < len(data):
-                token_plus.extend(tokenizer.get_sentence(data[shift: shift + window]))
-                shift += window
-        if save:
-            Tokenizer.save_story(token_plus)
-        return token_plus
+        file = path.join(
+            co.DATA_STORE, 
+            f'whole_story_{Tokenizer.window}_{Tokenizer.number_pieces}.pkl')        
+        token = []
 
+        if not force_save and path.exists(file):
+            with open(file, 'rb') as f: 
+                token = pickle.load(f) 
+
+        if len(token) == 0:
+            if window is None:
+                window = Tokenizer.window
+
+            shift = 0
+            while shift + window < len(data):
+                    token.extend(Tokenizer.get_sentence(data[shift: shift + window]))
+                    shift += window
+
+            with open(file, 'wb') as f: 
+                pickle.dump(token, f)
+        
+        return token
+
+    def get_words_used(whole_story):
+        word_count = collections.Counter(whole_story).most_common()
+        return np.array([_[0] for _ in word_count])
+        
 def test_temperature():
     window = 120
     shift = 0
@@ -381,75 +298,20 @@ def test():
     from tokenizer import Tokenizer
 
     set_test_data(
-        data_count=10000, 
-        moving_av=True)
-    
+    data_count=None, 
+    moving_av=True)
+
     DATA = td.DATA
-    tokenizer = Tokenizer()
-    print('Tokenizer.temperature_levels: ', Tokenizer.temperature_levels)
-    Tokenizer.get_levels_from_file(set_levels=True)
 
-    shift = 1000
+    Tokenizer.set_quantization_levels(*Tokenizer.get_statistics(DATA, bins=100))
+
+    shift = 1000 
     window = 120
-    tokenizer.get_sentence(DATA[shift: shift + window])
+    token = Tokenizer.get_sentence(DATA[shift: shift + window])
 
-
-
-    # data = td.DATA
-    # token_plus = Tokenizer.get_whole_story(data)
-    
-    # for i in range(300, 305):
-    #     print(f'token[{i}]:\n {token_plus[i]}')
-    
-    # import pdb; pdb.set_trace()
-    # token = [_[0] for _ in token_plus]
-
-    # def plot_token(token_plus):
-
-    #     begin_index = next((i for i, t in enumerate(data) if t[0] > token_plus[0][1]), -1)
-    #     end_index = next((i for i, t in enumerate(data) if t[0] > token_plus[0][1]), -1)
-    #     nonlocal previous
-    #     previous = None
-    #     def decode_token(tp, x):
-    #         if (diff := (previous[0][0] - tp[0][0])) == 0:
-    #             return tp[1]
-            
-    #         previous = tp
-    #         return (tp[0][2] - previous[0][2]) / diff * x 
-           
-    #     first = True
-    #     time_tp = []
-    #     value_tp = []
-    #     time = data[begin_index][1]
-    #     for tp in token_plus:
-    #         if first:
-    #             previous = tp
-    #             first = False
-            
-    #         while time < tp[0]:
-    #             pass
-
-
-    # plot_token(token_plus)
-
-
-
-    # current = ((2.3935439343241414, 4.836509748507084e-05, -0.007276000929348797), 1672781783.612636)
-    # for tp in token_plus:
-    #     previous = current
-    #     current = tp
-
-
-
-
-
-
-
-    # len(time_temp_value)
-    # with open(
-    #     path.join(DATA_STORE, f'whole_story_{Tokenizer.window}_{Tokenizer.number_pieces}.txt'), 'w') as f:
-    #     for word in whole_story:
-    #         f.write(f'{str(word)}\n')
+    token = Tokenizer.get_whole_story(DATA)
+    import pdb; pdb.set_trace()
+    pass
 
 def main():
     test()

@@ -3,21 +3,39 @@ import datetime
 import os
 from os import path
 import re
+import pickle
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
 import core as co
 from core import config
 
+def save_data(data):
+    with open(path.join(
+            co.DATA_STORE, 
+            f'hist_data.pkl'), 'wb') as f:
+        pickle.dump(data, f)
+
+def get_data_from_file(set_levels=True):  
+    try:   
+        with open(
+            path.join(
+                co.DATA_STORE, 
+                f'hist_data.pkl'), 'rb') as f:
+            data = pickle.load(f)
+    except:
+        return None
+    return data
+
 class TestData:
     """
 Reads data from all files in a `test_data`, specified with the combined definitions in
 the `SETUP` and CONFIG maps.
-Loads the data to a list accesible with a generator defined in the Class.
+Loads the data to a list accessible with a generator defined in the Class.
     """
     def __init__(self, data_count=200, start_time=None, moving_av=True):
-        _warmup_time = co.WARMUP_TIME if moving_av else 0
-        
+        _warmup_time = co.WARMUP_TIME if moving_av else 0           
+
         if data_count is not None:
             data_count += _warmup_time
         if start_time is not None:
@@ -133,18 +151,27 @@ DATA = None
 VALUE = None
 TIMESTAMP = None
 
-def set_test_data(data_count=3000, start_time=None, moving_av=True):
+def set_test_data(data_count=3000, start_time=None, moving_av=True, force_save=False):
     global DATA
     global VALUE
     global TIMESTAMP
 
-    DATA = TestData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
+    DATA = None
+    if data_count is None:
+        if not force_save:
+            DATA = get_data_from_file()
+
+    if DATA is None:
+        DATA = TestData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
     VALUE = np.array([(values[1][0][0], values[1][1][0]) for values in DATA])
     TIMESTAMP = np.array([values[0] for values in DATA])
     print(f'Test data size (flats are duducted) is {len(DATA)}')
     print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
     print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')
     print(f'Subtracting moving avarage: {moving_av}')
+
+    if data_count is None:
+        save_data(DATA)
     
 def plot(count=None):
     plot_values = DATA[:count] if count is not None else PendingDeprecationWarning
