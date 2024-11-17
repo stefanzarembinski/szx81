@@ -151,7 +151,8 @@ DATA = None
 VALUE = None
 TIMESTAMP = None
 
-def set_test_data(data_count=3000, start_time=None, moving_av=True, force_save=False):
+def set_test_data(data_count=3000, start_time=None, moving_av=True, force_save=False, 
+                  verbose=True):
     global DATA
     global VALUE
     global TIMESTAMP
@@ -165,10 +166,11 @@ def set_test_data(data_count=3000, start_time=None, moving_av=True, force_save=F
         DATA = TestData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
     VALUE = np.array([(values[1][0][0], values[1][1][0]) for values in DATA])
     TIMESTAMP = np.array([values[0] for values in DATA])
-    print(f'Test data size (flats are duducted) is {len(DATA)}')
-    print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
-    print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')
-    print(f'Subtracting moving avarage: {moving_av}')
+    if verbose:
+        print(f'Test data size (flats are duducted) is {len(DATA)}')
+        print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
+        print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')
+        print(f'Subtracting moving avarage: {moving_av}')
 
     if data_count is None:
         save_data(DATA)

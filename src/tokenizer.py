@@ -22,7 +22,6 @@ class Tokenizer:
     value_levels = None
     temperature_levels = None
     filter = co.Savgol_filter(window=50, order=5)
-    none_word = '0000'
 
     def __init__(self):
         pass
@@ -257,7 +256,7 @@ class Tokenizer:
 
     def get_words_used(whole_story):
         word_count = collections.Counter(whole_story).most_common()
-        return np.array([_[0] for _ in word_count])
+        return np.array([_[0] for _ in word_count]), word_count
         
 def test_temperature():
     window = 120
