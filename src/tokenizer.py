@@ -185,11 +185,11 @@ class Tokenizer:
         value_part = [value_set[i] for i in range(1, len(value_set))]
         value_qu = Tokenizer.quantize(value_part, Tokenizer.value_levels)
         
-        # import pdb; pdb.set_trace()        
+               
         temp_part = clazz.temperature()
         temp_qu = Tokenizer.quantize(temp_part, Tokenizer.temperature_levels)
-        
-        return [(round(time_qu[i], 1), value_qu[i], temp_qu[i]) 
+        # import pdb; pdb.set_trace() 
+        return [(round(time_qu[i], 1), value_qu[i], temp_qu[i])
                                                     for i in range(len(time_qu))]
     
     def get_whole_story(data, window=None, force_save=False):
@@ -230,7 +230,6 @@ class Tokenizer:
         ```
 
         """
-
         file = path.join(
             co.DATA_STORE, 
             f'whole_story_{Tokenizer.window}_{Tokenizer.number_pieces}.pkl')        
@@ -246,8 +245,8 @@ class Tokenizer:
 
             shift = 0
             while shift + window < len(data):
-                    token.extend(Tokenizer.get_sentence(data[shift: shift + window]))
-                    shift += window
+                token.extend(Tokenizer.get_sentence(data[shift: shift + window]))
+                shift += window
 
             with open(file, 'wb') as f: 
                 pickle.dump(token, f)
@@ -256,7 +255,7 @@ class Tokenizer:
 
     def get_words_used(whole_story):
         word_count = collections.Counter(whole_story).most_common()
-        return np.array([_[0] for _ in word_count]), word_count
+        return [tuple(_[0]) for _ in word_count], word_count
         
 def test_temperature():
     window = 120
@@ -307,8 +306,8 @@ def test():
     shift = 1000 
     window = 120
     token = Tokenizer.get_sentence(DATA[shift: shift + window])
-
-    token = Tokenizer.get_whole_story(DATA)
+    whole_story = Tokenizer.get_whole_story(DATA, force_save=False)
+    word, word_count = Tokenizer.get_words_used(whole_story)
     import pdb; pdb.set_trace()
     pass
 
