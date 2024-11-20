@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import core as co
 from core import config
 import piecewise_fit as ls
-import test_data as td
+import hist_data as td
 
 
 
@@ -291,11 +291,11 @@ def test_quantization():
 
 
 def test():
-    import test_data as td
-    from test_data import set_test_data
+    import hist_data as td
+    from hist_data import set_hist_data
     from tokenizer import Tokenizer
 
-    set_test_data(
+    set_hist_data(
     data_count=None, 
     moving_av=True)
 
@@ -313,7 +313,7 @@ def test():
 
 def main():
     test()
-    # td.set_test_data(data_count=20000, moving_av=True)
+    # td.set_hist_data(data_count=20000, moving_av=True)
     # test_quantization()
     # test_nn_input()
     # test_temperature()

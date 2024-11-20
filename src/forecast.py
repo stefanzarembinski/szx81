@@ -8,7 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import core as co
 from core import config
 import piecewise_fit as ls
-import test_data as td
+import hist_data as td
 
 class Forecast:
     PIP = 1e-4 # XTB min spread is 0.5 pip for STANDARD account. Market spread min. is 0.1 pip

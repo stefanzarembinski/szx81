@@ -10,7 +10,7 @@ import scipy.optimize as spo
 from scipy.interpolate import splrep, BSpline
 
 import core as co
-import test_data as td
+import hist_data as td
 import leastsqbound as lb
 
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})

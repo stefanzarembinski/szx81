@@ -27,7 +27,7 @@ def get_data_from_file(set_levels=True):
         return None
     return data
 
-class TestData:
+class HistData:
     """
 Reads data from all files in a `test_data`, specified with the combined definitions in
 the `SETUP` and CONFIG maps.
@@ -151,7 +151,7 @@ DATA = None
 VALUE = None
 TIMESTAMP = None
 
-def set_test_data(data_count=3000, start_time=None, moving_av=True, force_save=False, 
+def set_hist_data(data_count=3000, start_time=None, moving_av=True, force_save=False, 
                   verbose=True):
     global DATA
     global VALUE
@@ -163,7 +163,7 @@ def set_test_data(data_count=3000, start_time=None, moving_av=True, force_save=F
             DATA = get_data_from_file()
 
     if DATA is None:
-        DATA = TestData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
+        DATA = HistData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
     VALUE = np.array([(values[1][0][0], values[1][1][0]) for values in DATA])
     TIMESTAMP = np.array([values[0] for values in DATA])
     if verbose:
@@ -204,7 +204,7 @@ def plot(count=None):
     plt.show()   
 
 def main():
-    set_test_data(
+    set_hist_data(
     data_count=10000, 
     start_time=datetime.datetime(2023, 1, 20, 13, 38).timestamp(),
     moving_av=True
