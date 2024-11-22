@@ -5,95 +5,167 @@ import numpy as np
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import pickle
 import core as co
 from core import config
 import piecewise_fit as ls
 import hist_data as hd
 
 class Forecast:
-    PIP = 1e-4 # XTB min spread is 0.5 pip for STANDARD account. Market spread min. is 0.1 pip
-    def __init__(self, value, threshold=None, plotall=False):
+    """Given historical data, determines current trade opportunities.
+    Parameters:
+    -----------
+    data : Historical data chunk investigated.
 
-        self.value = value
+        ```
+        (
+            1672871700.0, 
+            (
+                [0.00166904166666626, 0.00166904166666626, 0.001589041666666402, 0.001629041666666442], 
+                [0.001609041666666311, 0.001609041666666311, 0.001529041666666453, 0.0015790416666663365]
+            ), 
+            56240.0017
+        )   
+        ```
+    threshold: The minimal profit expeched.
+    plotall: If set, if result is plotted, than wider plot showing more details.
+     
+    Attributes:
+    -----------
+    panic : The maximum value of possible loss if panicked. Negative value means no panic.?
+    """
+    IS_ASK = True
+    IS_BID = False
+    advices = {IS_ASK: 'sell-buy', IS_BID: 'buy-sell'}
+    PIP = 1e-4 # XTB min spread is 0.5 pip for STANDARD account. Market spread min. is 0.1 pip
+    FILE = path.join(
+            co.DATA_STORE,
+            f'trend_{round(config.FORECAST_THRESHOLD / PIP)}_' \
+        + f'{config.FORECAST_WINDOW}_.pkl')
+    
+    @classmethod
+    def dump(cls, lookout, file=FILE):
+        with open(file, 'wb') as f:
+            pickle.dump(lookout, f)
+
+    @classmethod
+    def load(cls, file=FILE):
+        with open(file, 'rb') as f:
+            lookout = pickle.load(f)
+        return lookout
+    
+    def __init__(self, data, threshold=None, plotall=False):
+        self.file = path.join(
+            co.DATA_STORE, 
+            f'trend_{round(threshold / Forecast.PIP)}_{len(data)}_.pkl')
+        self.data = data
         self.threshold = co.config.CONFIG['forecast_threshold'] \
             if threshold is None else threshold
-        panic_level = 1e-4
-        
         self.plotall = plotall
-        
-        self.mean = (np.array([_[0] for _ in value]) + np.array([_[1] for _ in value])) / 2
+        self.panic = None
+        self.advice = None
+
+        self.panic_threshold = Forecast.PIP
+        self.mean = (np.array([_[1][0][0] for _ in data]) + np.array([_[1][1][0] for _ in data])) / 2
         self.mean = self.mean - self.mean[0]
-        spread = (np.array([_[0] for _ in value]) - np.array([_[1] for _ in value]))
+        spread = (np.array([_[1][0][0] for _ in data]) - np.array([_[1][1][0] for _ in data]))
         ask = (self.mean + spread / 2)
         bid = (self.mean - spread / 2)
+        # import pdb; pdb.set_trace()
         self.ask = lambda: ask # ask is the price a seller is willing to accept
         self.bid = lambda: bid # bid is the price a buyer is willing to pay
+        self.directions = {Forecast.IS_ASK: self.ask, Forecast.IS_BID: self.bid}
 
         self.min = min(self.mean)
         self.max = max(self.mean)
         self.direction = None
-
+        
         '''
-threshold + spread[0]: {(self.threshold + spread[0]) / Forecast.PIP:.1f}              
+        threshold + spread[0]: {(self.threshold + spread[0]) / Forecast.PIP:.1f}              
 
-Buy (ask) low, sell (bid) high:
-ask[0]: {self.ask()[0] / Forecast.PIP:.1f}
-max bid: {max(self.bid()) / Forecast.PIP:.1f}
-diff: {(max(self.bid()) - self.ask()[0]) / Forecast.PIP:.1f}
+        Buy (ask) low, sell (bid) high:
+        ask[0]: {self.ask()[0] / Forecast.PIP:.1f}
+        max bid: {max(self.bid()) / Forecast.PIP:.1f}
+        diff: {(max(self.bid()) - self.ask()[0]) / Forecast.PIP:.1f}
 
-:
-bid[0]: {self.bid()[0] / Forecast.PIP:.1f}
-min ask: {min(self.ask()) / Forecast.PIP:.1f}
-diff: {(self.bid()[0] - min(self.ask())) / Forecast.PIP:.1f}
-''' 
-        def set_direction(direction, opposite):
-            """Called when trend direction is determined. Then sets statistics.
+        :
+        bid[0]: {self.bid()[0] / Forecast.PIP:.1f}
+        min ask: {min(self.ask()) / Forecast.PIP:.1f}
+        diff: {(self.bid()[0] - min(self.ask())) / Forecast.PIP:.1f}
+        ''' 
+        def set_direction(is_ask):
+            """Called when trend direction is determined. It sets statistics.
             Parameters:
             -----------
-            direction : lambda function either `self.ask` or `self.bid`.
-            opposite : lambda function other then set with `direction`.
+            is_ask : `True` if direction is ASK, `False` if it is not.
             """
-            if direction is None:
+            if is_ask is None:
                 return
-            self.direction = direction
-            self.index_min = np.argmin(direction())
-            self.min = direction()[self.index_min] 
-            self.index_max = np.argmax(direction())
-            self.max = direction()[self.index_max]
-            self.end = direction()[-1]
-            self.begin_price = opposite()[0]
+            
+            self.direction = self.directions[is_ask]
+            self.opposite = self.directions[not is_ask]
+            self.index_min = np.argmin(self.direction())
+            self.min = self.direction()[self.index_min] 
+            self.index_max = np.argmax(self.direction())
+            self.max = self.direction()[self.index_max]
+            self.end = self.direction()[-1]
+            self.begin_price = self.opposite()[0]
+            self.advice = None
             
             self.panic = None
-            if direction == self.bid:
-                self.min_end_price = self.begin_price - self.threshold
+            if not is_ask: # buy low, sell high
                 self.threshold_level = self.ask()[0] + self.threshold
-                self.panic_level = opposite()[0] - panic_level
-                self.sell_time = np.argmax(self.bid() > self.threshold_level)               
+                self.sell_time = np.argmax(self.bid() - self.threshold_level > 0)
+                if self.sell_time == 0:
+                    self.panic = None
+                    return
+                
+                self.min_end_price = self.begin_price - self.threshold
+                self.panic_level = self.opposite()[0] - self.panic_threshold
+                self.buy_price = self.begin_price
+                self.sell_price = self.direction()[self.sell_time]              
                 # import pdb; pdb.set_trace()
-                self.panic = -(min(direction()[:self.sell_time]) - self.panic_level)
-            elif direction == self.ask:
-                self.min_end_price = self.begin_price + self.threshold
+                self.advice = Forecast.advices[is_ask]
+                self.panic = -(min(self.direction()[2: self.sell_time]) - self.panic_level)
+                
+            elif is_ask: # sell high, buy low
                 self.threshold_level = self.begin_price - self.threshold
-                self.panic_level = opposite()[0] + panic_level
-                self.buy_time = np.argmax(self.ask() < self.threshold_level)
+                self.buy_time = np.argmax(self.ask() - self.threshold_level < 0)
+                if self.buy_time == 0:
+                    self.panic = None
+                    return
+
+                self.min_end_price = self.begin_price + self.threshold                      
+                self.panic_level = self.opposite()[0] + self.panic_threshold
+                self.buy_price = self.direction()[self.buy_time]
+                self.sell_price = self.begin_price
                 # import pdb; pdb.set_trace()
-                self.panic = max(direction()[:self.buy_time]) - self.panic_level
+                self.advice = Forecast.advices[is_ask]
+                self.panic = max(self.direction()[2: self.buy_time]) - self.panic_level
             
-            difference = self.min_end_price - self.begin_price
-            self.min_profit = - difference
+            self.min_profit = self.sell_price - self.buy_price
 
         # import pdb; pdb.set_trace()
         # (buy price ask now - low) - (sell price in bid future - high) > -(min profit)
         if max(self.bid()) - self.ask()[0] > self.threshold + spread[0]:
             # bid (buy-sell)
-            set_direction(self.bid, self.ask)
+            set_direction(Forecast.IS_BID)
 
         # (sell price - bid now - high) - (buy price ask in future - low) > (min profit)
         elif self.bid()[0] - min(self.ask()) > self.threshold + spread[0]:
             # ask (sell-buy)
-            set_direction(self.ask, self.bid)
+            set_direction(Forecast.IS_ASK)
+            
+
+    def dump_to_file(self, lookout):
+        Forecast.dump(lookout=lookout, file=self.file)
+
+    def load_from_file(self):
+        return Forecast.load(file=self.file)
 
     def forecast(self):
+        """
+        """
         if self.direction is None:
             return (0, None)
         return (
@@ -103,24 +175,19 @@ diff: {(self.bid()[0] - min(self.ask())) / Forecast.PIP:.1f}
             
     def __str__(self):
         str = 'forecast:\n'
-        if self.direction is None:
-            str += f'direction: none'
+        if self.panic is None:
+            str += f'direction: none\n'
             return str
-        direction =  'bid (buy-sell)'
-        if self.direction == self.ask:
-            direction = 'ask: sell-buy'
-        str += f'direction: {direction}\n'
+
+        str += f'direction: {self.advice}\n'
         str += f'min profit [PIP]: {self.min_profit / Forecast.PIP:.2f}\n'
         # import pdb; pdb.set_trace()
-        if self.panic is not None:
-            str += f'panic value [PIP]: {self.panic / Forecast.PIP:.2f}' \
-                + (' - no panic\n' if self.panic < 0 else '\n')
-        else:
-            str += 'no panic'
+        str += f'panic value [PIP]: {self.panic / Forecast.PIP:.2f}' \
+            + (' - no panic\n' if self.panic < 0 else '\n')
         return str
     
     def plot(self):
-        cndl_count = np.array([i for i in range(len(self.value))], dtype='float64')
+        cndl_count = np.array([i for i in range(len(self.data))], dtype='float64')
         plt.plot(cndl_count, self.ask() / Forecast.PIP, label='ask')
         plt.plot(cndl_count, self.bid() / Forecast.PIP, label='bid')
         if self.direction == self.bid:
@@ -128,7 +195,7 @@ diff: {(self.bid()[0] - min(self.ask())) / Forecast.PIP:.1f}
                         marker='x', linewidths=10, label='buy point')
             plt.scatter(
                 [cndl_count[self.sell_time]], 
-                self.bid()[self.sell_time] / Forecast.PIP, 
+                self.sell_price / Forecast.PIP, 
                 marker='x', linewidths=10, label='sell point')
 
             plt.hlines(self.panic_level / Forecast.PIP, 
@@ -146,7 +213,7 @@ diff: {(self.bid()[0] - min(self.ask())) / Forecast.PIP:.1f}
                         marker='x', linewidths=10, label='sell point')
             plt.scatter(
                 [cndl_count[self.buy_time]], 
-                self.ask()[self.buy_time] / Forecast.PIP, 
+                self.buy_price / Forecast.PIP, 
                 marker='x', linewidths=10, label='buy point')
             
             plt.hlines(self.panic_level / Forecast.PIP, 
@@ -164,20 +231,57 @@ diff: {(self.bid()[0] - min(self.ask())) / Forecast.PIP:.1f}
         plt.legend()
         plt.show()
 
+def set_trend_lookout(data_count=None):
+    hd.set_hist_data(data_count, moving_av=True)
+    
+    forecast_window = config.FORECAST_WINDOW
+    threshold = config.FORECAST_THRESHOLD
+    shift = 0
+    step = 1
+    lookout = {}
+    
+    while shift + forecast_window < len(hd.DATA):
+        data = hd.DATA[shift: forecast_window + shift]
+        shift += step
+        forecast = Forecast(
+            data, 
+            threshold=threshold)
+        # import pdb; pdb.set_trace()
+        lookout[data[0][0]] = ((data[0][0], forecast.advice, forecast.panic))
+
+    Forecast.dump(lookout)
+
+def get_trend_lookout(verbose=False):
+    lookout = Forecast.load()
+    values = lookout.values()
+    sell_buy = [_ for _ in values if _[1] == Forecast.advices[Forecast.IS_ASK]]
+    buy_sell = [_ for _ in values if _[1] == Forecast.advices[Forecast.IS_BID]]
+    none = [_ for _ in values if _[1] is None] 
+    if verbose:   
+        print(f'len(sell-buy): {len(sell_buy)} ({len(sell_buy) / len(lookout) * 100:.0f}%)')
+        print(f'len(buy-sell): {len(buy_sell)} ({len(buy_sell) / len(lookout) * 100:.0f}%)')
+        print(f'len(none): {len(none)} ({len(none) / len(lookout) * 100:.0f}%)')
+    return lookout, sell_buy, buy_sell, none
+
 def test_forecast():
     FORECAST_WINDOW = 30
     FORECAST_THRESHOLD = 2e-4 + 1e-4 # spread
 
-    shift = 1500
+    shift = 1600
     forecast = Forecast(
-        hd.VALUE[shift: FORECAST_WINDOW + shift], 
+        hd.DATA[shift: FORECAST_WINDOW + shift], 
         threshold=FORECAST_THRESHOLD)
+    
     print(forecast)
     forecast.plot()
 
 def main():
     hd.set_hist_data(data_count=None, moving_av=True)
     test_forecast()
+    # set_trend_lookout()
+    # lookout, sell_buy, buy_sell, none = get_trend_lookout(verbose=True)
+    # import pdb; pdb.set_trace()
+    # pass
 
 if __name__ == "__main__":
     main()
