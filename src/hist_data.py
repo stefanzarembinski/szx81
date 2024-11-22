@@ -11,17 +11,14 @@ import core as co
 from core import config
 
 def save_data(data):
-    with open(path.join(
-            co.DATA_STORE, 
-            f'hist_data.pkl'), 'wb') as f:
+    file = path.join(co.DATA_STORE, f'hist_data.pkl')
+    with open(file, 'wb') as f:
         pickle.dump(data, f)
+    print(f'Saved to file {file}')
 
 def get_data_from_file(set_levels=True):  
     try:   
-        with open(
-            path.join(
-                co.DATA_STORE, 
-                f'hist_data.pkl'), 'rb') as f:
+        with open(path.join(co.DATA_STORE, f'hist_data.pkl'), 'rb') as f:
             data = pickle.load(f)
     except:
         return None
@@ -73,7 +70,7 @@ class HistData:
         # Sort data because datafile order can be not sequential:
         data_map = sorted(self.data_map.items())
         # Subtract mooving avarage:
-        self.data = []
+        self.data = {}
 
 
         ma = co.MovingAverage()
@@ -95,9 +92,9 @@ class HistData:
                     continue
                 mean_value = ma.ma()
             volume = dat[1][2]
-            self.data.append((timestamp, 
+            self.data[timestamp] = (timestamp, 
                               ([val - mean_value  for val in value[0]], 
-                               [val - mean_value for val in value[1]]), volume ))
+                               [val - mean_value for val in value[1]]), volume )
         if len(self.data) < 10:
             raise RuntimeError('The resulting data count is very small!')
 
@@ -146,35 +143,37 @@ class HistData:
                         entry[2] = volume
                         self.data_map[timestamp] = entry
           
-
+DIR_DATA = None
 DATA = None
 VALUE = None
 TIMESTAMP = None
 
 def set_hist_data(data_count=3000, start_time=None, moving_av=True, force_save=False, 
                   verbose=True):
+    global DIR_DATA
     global DATA
     global VALUE
     global TIMESTAMP
 
-    DATA = None
+    DIR_DATA = None
     if data_count is None:
         if not force_save:
-            DATA = get_data_from_file()
+            DIR_DATA = get_data_from_file()
 
-    if DATA is None:
-        DATA = HistData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
+    if DIR_DATA is None:
+        DIR_DATA = HistData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
+        if data_count is None:
+            save_data(DIR_DATA)
+
+    DATA = list(DIR_DATA.values())
     VALUE = np.array([(values[1][0][0], values[1][1][0]) for values in DATA])
-    TIMESTAMP = np.array([values[0] for values in DATA])
+    TIMESTAMP = np.array([_[0] for _ in DATA])
     if verbose:
         print(f'Test data size (flats are duducted) is {len(DATA)}')
         print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
         print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')
         print(f'Subtracting moving avarage: {moving_av}')
 
-    if data_count is None:
-        save_data(DATA)
-    
 def plot(count=None):
     plot_values = DATA[:count] if count is not None else PendingDeprecationWarning
     x = []
@@ -201,14 +200,19 @@ def plot(count=None):
     plt.xlabel('time [min]')
     plt.ylabel('open value')
     plt.legend()
-    plt.show()   
+    plt.show()
+
+def save_to_file():
+    set_hist_data(
+        data_count=None, 
+        moving_av=True,
+        force_save=True
+    )    
 
 def main():
-    set_hist_data(
-    data_count=10000, 
-    start_time=datetime.datetime(2023, 1, 20, 13, 38).timestamp(),
-    moving_av=True
-    )
+    # save_to_file()
+
+    set_hist_data(data_count=None, moving_av=True)
     plot(12000)
 
 if __name__ == "__main__":
