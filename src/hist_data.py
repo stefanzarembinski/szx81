@@ -29,9 +29,9 @@ def get_data_from_file(set_levels=True):
 
 class HistData:
     """
-Reads data from all files in a `test_data`, specified with the combined definitions in
-the `SETUP` and CONFIG maps.
-Loads the data to a list accessible with a generator defined in the Class.
+        Reads data from all files in a `test_data`, specified with the combined 
+        definitions in the `SETUP` and CONFIG maps.
+        Loads the data to a list accessible with a generator defined in the Class.
     """
     def __init__(self, data_count=200, start_time=None, moving_av=True):
         _warmup_time = co.WARMUP_TIME if moving_av else 0           

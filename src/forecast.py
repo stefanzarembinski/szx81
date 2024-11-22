@@ -54,14 +54,13 @@ class Forecast:
             lookout = pickle.load(f)
         return lookout
     
-    def __init__(self, data, threshold=None, plotall=False):
+    def __init__(self, data, threshold=None):
         self.file = path.join(
             co.DATA_STORE, 
             f'trend_{round(threshold / Forecast.PIP)}_{len(data)}_.pkl')
         self.data = data
         self.threshold = co.config.CONFIG['forecast_threshold'] \
             if threshold is None else threshold
-        self.plotall = plotall
         self.panic = None
         self.advice = None
 
@@ -186,7 +185,8 @@ class Forecast:
             + (' - no panic\n' if self.panic < 0 else '\n')
         return str
     
-    def plot(self):
+    def plot(self, plotall=False):
+
         cndl_count = np.array([i for i in range(len(self.data))], dtype='float64')
         plt.plot(cndl_count, self.ask() / Forecast.PIP, label='ask')
         plt.plot(cndl_count, self.bid() / Forecast.PIP, label='bid')
@@ -204,7 +204,7 @@ class Forecast:
             plt.hlines(self.threshold_level / Forecast.PIP, 
                        cndl_count[0], cndl_count[-1], label='min sell level')
             
-            if not self.plotall:
+            if not plotall:
                 plt.axis([cndl_count[0], cndl_count[-1], 
                     -1e-4 / Forecast.PIP, 2 * self.threshold / Forecast.PIP])
 
