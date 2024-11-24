@@ -143,29 +143,29 @@ class HistData:
                         entry[2] = volume
                         self.data_map[timestamp] = entry
           
-DIR_DATA = None
+DICT_DATA = None
 DATA = None
 VALUE = None
 TIMESTAMP = None
 
 def set_hist_data(data_count=3000, start_time=None, moving_av=True, force_save=False, 
                   verbose=True):
-    global DIR_DATA
+    global DICT_DATA
     global DATA
     global VALUE
     global TIMESTAMP
 
-    DIR_DATA = None
+    DICT_DATA = None
     if data_count is None:
         if not force_save:
-            DIR_DATA = get_data_from_file()
+            DICT_DATA = get_data_from_file()
 
-    if DIR_DATA is None:
-        DIR_DATA = HistData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
+    if DICT_DATA is None:
+        DICT_DATA = HistData(data_count=data_count, start_time=start_time, moving_av=moving_av).data
         if data_count is None:
-            save_data(DIR_DATA)
+            save_data(DICT_DATA)
 
-    DATA = list(DIR_DATA.values())
+    DATA = list(DICT_DATA.values())
     VALUE = np.array([(values[1][0][0], values[1][1][0]) for values in DATA])
     TIMESTAMP = np.array([_[0] for _ in DATA])
     if verbose:

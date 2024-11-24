@@ -55,18 +55,19 @@ class Forecast:
         return prediction
     
     def __init__(self, data, threshold=None):
-        self.file = path.join(
-            co.DATA_STORE, 
-            f'trend_{round(threshold / Forecast.PIP)}_{len(data)}_.pkl')
         self.data = data
-        self.threshold = co.config.CONFIG['forecast_threshold'] \
+        self.threshold = config.FORECAST_THRESHOLD \
             if threshold is None else threshold
         self.panic = None
         self.advice = None
         self.trans_time = None
         self.max_panic_time = None
 
-        self.panic_threshold = Forecast.PIP
+        self.file = path.join(
+            co.DATA_STORE, 
+            f'trend_{round(self.threshold / Forecast.PIP)}_{len(data)}_.pkl')
+        
+        self.panic_threshold = config.PANIC_THRESHOLD
         self.mean = (np.array([_[1][0][0] for _ in data]) + np.array([_[1][1][0] for _ in data])) / 2
         self.mean = self.mean - self.mean[0]
         spread = (np.array([_[1][0][0] for _ in data]) - np.array([_[1][1][0] for _ in data]))
@@ -114,7 +115,7 @@ class Forecast:
             self.advice = None
             
             self.panic = None
-            if not is_ask: # buy low, sell high
+            if not is_ask: # (buy-sell) buy low, sell high
                 self.threshold_level = self.ask()[0] + self.threshold
                 self.trans_time = np.argmax(self.bid() - self.threshold_level > 0)
                 if self.trans_time == 0:
@@ -130,7 +131,7 @@ class Forecast:
                 self.max_panic_time = np.argmax(-self.direction()[:self.trans_time])
                 self.panic = -self.direction()[:self.trans_time][self.max_panic_time] + self.panic_level
                 
-            elif is_ask: # sell high, buy low
+            elif is_ask: # (sell-buy), sell high, buy low
                 self.threshold_level = self.begin_price - self.threshold
                 self.trans_time = np.argmax(self.ask() - self.threshold_level < 0)
                 if self.trans_time == 0:
@@ -193,6 +194,7 @@ class Forecast:
         cndl_count = np.array([i for i in range(len(self.data))], dtype='float64')
         plt.plot(cndl_count, self.ask() / Forecast.PIP, label='ask')
         plt.plot(cndl_count, self.bid() / Forecast.PIP, label='bid')
+        
         if self.direction == self.bid:
             plt.scatter([cndl_count[0]], self.ask()[0] / Forecast.PIP, 
                         marker='x', linewidths=10, label='buy point')
@@ -240,7 +242,7 @@ class Forecast:
         plt.legend()
         plt.show()
 
-def set_trend_lookout(data_count=None):
+def set_trend_predictions(data_count=None):
 
     hd.set_hist_data(data_count, moving_av=True)
     
@@ -257,11 +259,11 @@ def set_trend_lookout(data_count=None):
             data, 
             threshold=threshold)
         # import pdb; pdb.set_trace()
-        prediction[data[0][0]] = ((data[0][0], forecast.advice, forecast.trans_time, forecast.panic, forecast.max_panic_time))
+        prediction[data[0][0]] = (forecast.advice, forecast.trans_time, forecast.panic, forecast.max_panic_time)
 
     Forecast.dump(prediction)
 
-def get_trend_lookout(verbose=False):
+def get_predictions(verbose=False):
     """
     Parameters
     ----------
@@ -276,9 +278,9 @@ def get_trend_lookout(verbose=False):
     """    
     prediction = Forecast.load()
     values = prediction.values()
-    sell_buy = [_ for _ in values if _[1] == Forecast.advices[Forecast.IS_ASK]]
-    buy_sell = [_ for _ in values if _[1] == Forecast.advices[Forecast.IS_BID]]
-    none = [_ for _ in values if _[1] is None] 
+    sell_buy = [_ for _ in values if _[0] == Forecast.advices[Forecast.IS_ASK]]
+    buy_sell = [_ for _ in values if _[0] == Forecast.advices[Forecast.IS_BID]]
+    none = [_ for _ in values if _[0] is None] 
     if verbose:   
         print(f'len(sell-buy): {len(sell_buy)} ({len(sell_buy) / len(prediction) * 100:.0f}%)')
         print(f'len(buy-sell): {len(buy_sell)} ({len(buy_sell) / len(prediction) * 100:.0f}%)')
@@ -298,12 +300,12 @@ def test_forecast():
     forecast.plot(plotall=True)
 
 def main():
-    # hd.set_hist_data(data_count=None, moving_av=True)
-    # test_forecast()
-    # set_trend_lookout()
-    prediction, sell_buy, buy_sell, none = get_trend_lookout(verbose=True)
-    import pdb; pdb.set_trace()
-    pass
+    hd.set_hist_data(data_count=None, moving_av=True)
+    test_forecast()
+    # set_trend_predictions()
+    # prediction, sell_buy, buy_sell, none = get_predictions(verbose=True)
+    # import pdb; pdb.set_trace()
+    # pass
 
 if __name__ == "__main__":
     main()
