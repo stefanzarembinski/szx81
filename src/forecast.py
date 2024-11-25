@@ -259,7 +259,8 @@ def set_trend_predictions(data_count=None):
             data, 
             threshold=threshold)
         # import pdb; pdb.set_trace()
-        prediction[data[0][0]] = (forecast.advice, forecast.trans_time, forecast.panic, forecast.max_panic_time)
+        prediction[data[0][0]] \
+            = (forecast.advice, forecast.trans_time, forecast.panic, forecast.max_panic_time)
 
     Forecast.dump(prediction)
 
@@ -294,7 +295,7 @@ class Oracle:
     __predictions = None
     def __get_instance():
         if Oracle.__predictions is None:
-            Oracle.__predictions, _, _, _ = get_predictions(verbose=True)
+            Oracle.__predictions, _, _, _ = get_predictions()
         return Oracle.__predictions
     def __init__(self):
         self.predictions_dict = Oracle.__get_instance()
@@ -305,10 +306,17 @@ class Oracle:
         -------
         predictions : timestamp keyed map of tuples 
             ``advice, trans_time, panic, max_panic_time``
+
+        Notes
+        -----
+        advice : ``buy-sell`` or ``sell-buy``
+        trans_time : Time point where the minimal profit is found.
+        panic : ....?
+        max_panic_time : Time point where the panic value is maximal.
         """
         return self.predictions_dict
     
-    def prediction(self, timestamp):
+    def prediction(self, forex):
         """Given timestamp, returns prediction about the future trend.
 
         parameters
@@ -319,7 +327,7 @@ class Oracle:
         -------
         prediction : tuple ``advice, trans_time, panic, max_panic_time``
         """
-        return self.predictions_dict[timestamp]
+        return self.predictions_dict[forex[0]], forex 
 
 def test_forecast():
     FORECAST_WINDOW = 30
@@ -334,7 +342,7 @@ def test_forecast():
     forecast.plot(plotall=True)
 
 def main():
-    hd.set_hist_data(data_count=None, moving_av=True)
+    hd.set_hist_data(data_count=None)
     test_forecast()
     # set_trend_predictions()
     # prediction, sell_buy, buy_sell, none = get_predictions(verbose=True)

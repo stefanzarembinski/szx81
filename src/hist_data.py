@@ -148,11 +148,11 @@ DATA = None
 VALUE = None
 TIMESTAMP = None
 
-def XTB():
+def ForexProvider():
     return ((timestamp, value) for timestamp, value in DICT_DATA.items())
 
 def set_hist_data(data_count=3000, start_time=None, moving_av=True, force_save=False, 
-                  verbose=True):
+                  verbose=False):
     global DICT_DATA
     global DATA
     global VALUE

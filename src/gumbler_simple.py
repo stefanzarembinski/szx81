@@ -13,9 +13,9 @@ class GumblerSimple:
     total = 0
 
     @staticmethod
-    def get_instance(direction, forex, min_profit=3*fo.Forecast.PIP, 
+    def get_instance(oracle, min_profit=3*fo.Forecast.PIP, 
                  risk_factor=0.7):
-        inst = GumblerSimple(direction, forex, min_profit, risk_factor)
+        inst = GumblerSimple(oracle, min_profit, risk_factor)
         GumblerSimple.gumblers.append(inst)
         return inst
     
@@ -27,7 +27,7 @@ class GumblerSimple:
                 GumblerSimple.gumblers.remove(g)
 
     @staticmethod
-    def step_gamblers(forex):
+    def step_gamblers(oracle):
         """
         Parameters
         ----------
@@ -143,10 +143,7 @@ def test():
     oracle = fo.Oracle()
 
     while True:
-        timestamp_data = next(forex)
-        if timestamp_data[0] not in oracle.predictions():
-            continue
-        
+        timestamp_data = next(forex)       
         ask_price, bid_price = prices(timestamp_data)
         advice, trans_time, panic, max_panic_time \
                                 = oracle.prediction(timestamp_data[0])
