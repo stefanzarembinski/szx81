@@ -321,11 +321,6 @@ class Oracle:
         """
         return self.predictions_dict[timestamp]
 
-
-def oracle(timestamp, verbose=False):
-
-    return prediction[timestamp_data[0]]
-
 def test_forecast():
     FORECAST_WINDOW = 30
     FORECAST_THRESHOLD = 2e-4 + 1e-4 # spread

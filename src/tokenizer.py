@@ -37,7 +37,7 @@ class Tokenizer:
         force : If set, do not reload statistics from file.
 
         Returns
-        -------- 
+        ------- 
         time_stat : tuple ``(hist, bin_edges)`` for 'time' statistics.
         value_stat : tuple ``(hist, bin_edges)`` for 'value' statistics.
         temperature_stat : tuple ``(hist, bin_edges)`` for 'temperature' statistics.
