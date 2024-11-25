@@ -194,7 +194,7 @@ class Forecast:
         cndl_count = np.array([i for i in range(len(self.data))], dtype='float64')
         plt.plot(cndl_count, self.ask() / Forecast.PIP, label='ask')
         plt.plot(cndl_count, self.bid() / Forecast.PIP, label='bid')
-        
+
         if self.direction == self.bid:
             plt.scatter([cndl_count[0]], self.ask()[0] / Forecast.PIP, 
                         marker='x', linewidths=10, label='buy point')
@@ -286,6 +286,45 @@ def get_predictions(verbose=False):
         print(f'len(buy-sell): {len(buy_sell)} ({len(buy_sell) / len(prediction) * 100:.0f}%)')
         print(f'len(none): {len(none)} ({len(none) / len(prediction) * 100:.0f}%)')
     return prediction, sell_buy, buy_sell, none
+
+class Oracle:
+    """Provides ``prediction`` function, returning prediction about the 
+    future trend.
+    """
+    __predictions = None
+    def __get_instance():
+        if Oracle.__predictions is None:
+            Oracle.__predictions, _, _, _ = get_predictions(verbose=True)
+        return Oracle.__predictions
+    def __init__(self):
+        self.predictions_dict = Oracle.__get_instance()
+    
+    def predictions(self):
+        """
+        Returns
+        -------
+        predictions : timestamp keyed map of tuples 
+            ``advice, trans_time, panic, max_panic_time``
+        """
+        return self.predictions_dict
+    
+    def prediction(self, timestamp):
+        """Given timestamp, returns prediction about the future trend.
+
+        parameters
+        ----------
+        timestamp : key value to the response.
+
+        Returns
+        -------
+        prediction : tuple ``advice, trans_time, panic, max_panic_time``
+        """
+        return self.predictions_dict[timestamp]
+
+
+def oracle(timestamp, verbose=False):
+
+    return prediction[timestamp_data[0]]
 
 def test_forecast():
     FORECAST_WINDOW = 30
