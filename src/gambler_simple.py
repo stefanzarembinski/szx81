@@ -22,7 +22,7 @@ class GumblerSimple:
     @classmethod
     def clear_gamblers(cls):
         for g in cls.gamblers:
-            if g.profit is not None:
+            if g.isready:
                 cls.total += g.profit 
                 cls.gamblers.remove(g)
 
@@ -65,20 +65,31 @@ class GumblerSimple:
         self.bid_prices = []
         self.profits = []
         self.time = 0
+        self.timestamp = None
+        self.endofdata = False
+        self.isready = False
 
         while True:
-            self.__get_profit()
+            try:
+                self.__get_profit()
+            except Exception as ex:
+                self.endofdata = True
+                print('END OF DATA')
+                break
+
             if self.direction is not None:
                 break
 
-    def __get_profit(self): 
+    def __get_profit(self):
         (timestamp, (timestamp, (ask, bid), volume)), \
             (advice, trans_time, panic, max_panic_time) = self.forex_prediction()
-        
+
         # set ``self.direction`` once only
         if (advice is None) and (self.direction is None):
-            return
-        if self.direction is None: self.direction = advice
+            return None
+        if self.direction is None: 
+            self.direction = advice
+            self.timestamp = timestamp
 
         self.ask = ask[0]
         self.bid = bid[0]
@@ -100,29 +111,27 @@ class GumblerSimple:
             self.ask_prices.append(self.ask)
             self.bid_prices.append(self.bid)
             self.profits.append(profit)
-
-        return profit 
+        
+        self.profit = profit
 
     def gamble(self):
         while True:
-            profit = self.__get_profit()
+            try:
+                self.__get_profit()
+            except Exception as ex:
+                self.endofdata = True
+                print('END OF DATA')
+                break
 
             # gambling trategy:
-            if (profit >= self.min_profit) and self.max_profit is None:
+            if (self.profit >= self.min_profit) and self.max_profit is None:
                 self.max_profit = -sys.float_info.max
 
             if self.max_profit is not None:
-                self.max_profit = max(self.max_profit, profit)
-                if profit < self.max_profit * self.risk_factor:
+                self.max_profit = max(self.max_profit, self.profit)
+                if self.profit < self.max_profit * self.risk_factor:
                     break
-
-        self.profit = profit              
-
-    def get_profit(self):
-        """To check whether process is finished: if return is not None.
-        Then the profit can be booked and the object distroyed.
-        """        
-        return self.profit
+        self.isready = True
 
     def plot(self):
         _, bidask_pl = plt.subplots()
@@ -146,14 +155,9 @@ def prices(data):
     return ask[0], bid[0]
 
 def gambler(forex_prediction, min_profit=3*PIP, risk_factor=0.7, plot=False):
-    try:
-        g = GumblerSimple(
-            forex_prediction=forex_prediction, min_profit=min_profit, risk_factor=risk_factor)
-        g.gamble()
-        g.get_profit()
-    except Exception as ex:
-        print('END OF DATA')
-        return
+    g = GumblerSimple(
+        forex_prediction=forex_prediction, min_profit=min_profit, risk_factor=risk_factor)
+    g.gamble()
 
     if plot:
         print(f'advice: {g.direction}, profit: {g.profit:.1e}' \
