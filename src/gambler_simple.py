@@ -107,11 +107,11 @@ class GumblerSimple:
         while True:
             profit = self.__get_profit()
 
+            # gambling trategy:
             if (profit >= self.min_profit) and self.max_profit is None:
                 self.max_profit = -sys.float_info.max
 
             if self.max_profit is not None:
-                
                 self.max_profit = max(self.max_profit, profit)
                 if profit < self.max_profit * self.risk_factor:
                     break
@@ -146,10 +146,14 @@ def prices(data):
     return ask[0], bid[0]
 
 def gambler(forex_prediction, min_profit=3*PIP, risk_factor=0.7, plot=False):
-    g = GumblerSimple(
-        forex_prediction=forex_prediction, min_profit=min_profit, risk_factor=risk_factor)
-    g.gamble()
-    g.get_profit()
+    try:
+        g = GumblerSimple(
+            forex_prediction=forex_prediction, min_profit=min_profit, risk_factor=risk_factor)
+        g.gamble()
+        g.get_profit()
+    except Exception as ex:
+        print('END OF DATA')
+        return
 
     if plot:
         print(f'advice: {g.direction}, profit: {g.profit:.1e}' \
@@ -169,4 +173,4 @@ def main():
     test()
 
 if __name__ == "__main__":
-    main() 
+    main()  

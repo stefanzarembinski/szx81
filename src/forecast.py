@@ -333,7 +333,7 @@ class Oracle:
         """
         forex = next(self.forex_trader)
         if forex[0] not in self.predictions_dict:
-            pred = (None) * 4
+            pred = tuple([None] * 4)
         else:
             pred = self.predictions_dict[forex[0]]
         return forex, pred
