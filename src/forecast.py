@@ -293,12 +293,16 @@ class Oracle:
     future trend.
     """
     __predictions = None
-    def __get_instance():
-        if Oracle.__predictions is None:
-            Oracle.__predictions, _, _, _ = get_predictions()
-        return Oracle.__predictions
-    def __init__(self):
-        self.predictions_dict = Oracle.__get_instance()
+
+    @classmethod
+    def __get_instance(cls):
+        if cls.__predictions is None:
+            cls.__predictions, _, _, _ = get_predictions()
+        return cls.__predictions
+    
+    def __init__(self, forex_trader):
+        self.forex_trader = forex_trader
+        self.predictions_dict = self.__get_instance()
     
     def predictions(self):
         """
@@ -316,7 +320,7 @@ class Oracle:
         """
         return self.predictions_dict
     
-    def prediction(self, forex):
+    def prediction(self):
         """Given timestamp, returns prediction about the future trend.
 
         parameters
@@ -327,9 +331,15 @@ class Oracle:
         -------
         prediction : tuple ``advice, trans_time, panic, max_panic_time``
         """
-        return self.predictions_dict[forex[0]], forex 
+        forex = next(self.forex_trader)
+        if forex[0] not in self.predictions_dict:
+            pred = (None) * 4
+        else:
+            pred = self.predictions_dict[forex[0]]
+        return forex, pred
 
 def test_forecast():
+    hd.set_hist_data(data_count=None)
     FORECAST_WINDOW = 30
     FORECAST_THRESHOLD = 2e-4 + 1e-4 # spread
 
@@ -341,9 +351,18 @@ def test_forecast():
     print(forecast)
     forecast.plot(plotall=True)
 
-def main():
+def test_oracle():
     hd.set_hist_data(data_count=None)
-    test_forecast()
+    oracle = Oracle(hd.ForexProvider())
+    for i in range(5):
+        forex, prediction = oracle.prediction()
+        print(f'forex:\n{forex}')
+        print(f'prediction:\n{prediction}')
+        print()
+
+def main():
+    test_oracle()
+    # test_forecast()
     # set_trend_predictions()
     # prediction, sell_buy, buy_sell, none = get_predictions(verbose=True)
     # import pdb; pdb.set_trace()

@@ -149,6 +149,8 @@ VALUE = None
 TIMESTAMP = None
 
 def ForexProvider():
+    """Generator providing forex data.
+    """
     return ((timestamp, value) for timestamp, value in DICT_DATA.items())
 
 def set_hist_data(data_count=3000, start_time=None, moving_av=True, force_save=False, 
