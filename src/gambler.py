@@ -6,24 +6,30 @@ import forecast as fo
 
 PIP = 1e-4
 
-class GumblerSimple:
+class Gambler:
     """
     """
     gamblers = []
-    total = 0
+    profits = {}
 
     @classmethod
-    def get_instance(cls, oracle, min_profit=3*fo.Forecast.PIP, 
-                 risk_factor=0.7):
-        inst = cls(oracle, min_profit, risk_factor)
+    def new_instance(cls, forex_prediction, min_profit=3*fo.Forecast.PIP, 
+                 risk_factor=0.7, strategy_class=None):
+        """Creates a ``Gambler`` class object and includes it into the working
+            batch. It proceeds till the end of the transaction when it is killed.
+        """
+        inst = cls(forex_prediction, min_profit, risk_factor, strategy_class)
         cls.gamblers.append(inst)
         return inst
     
     @classmethod
-    def clear_gamblers(cls):
+    def clear_gamblers(cls, force=False):
         for g in cls.gamblers:
-            if g.isready:
-                cls.total += g.profit 
+            if g.isready or force:
+                if g.timeshot in cls.profits:
+                    cls.profits[g.timeshot] = cls.profits[g.timeshot] + g.profit
+                else:
+                    cls.profits[g.timeshot] = g.profit 
                 cls.gamblers.remove(g)
 
     @classmethod
@@ -35,13 +41,40 @@ class GumblerSimple:
             new forex and oracle prediction
         """
         cls.clear_gamblers()
-        forex_prediction  = next(forex_prediction)
-        for g in GumblerSimple.gamblers:
+        for g in Gambler.gamblers:
             g.gamble(forex_prediction)
+        
+        return fp
+
+    class DefaultStrategy:
+        """Envelope for strategy definition of ``Gambler`` objects.
+        Must have a ``strategy`` method.
+        """
+        def __init__(gambler):
+            pass
+
+        def strategy(self, _):
+            """Strategy definition
+            Parameters
+            ----------
+            _ : Reference to the Gambler object.
+
+            Returns
+            -------
+            continue : If set, continue transaction, finish otherwise.
+            """
+            if (_.profit >= _.min_profit) and _.max_profit is None:
+                _.max_profit = -sys.float_info.max
+
+            if _.max_profit is not None:
+                _.max_profit = max(_.max_profit, _.profit)
+                if _.profit < _.max_profit * _.risk_factor:
+                    return False
+            return True
 
     def __init__(self, 
                  forex_prediction, min_profit=3*PIP , 
-                 risk_factor=0.7):
+                 risk_factor=0.7, strategy_class=None):
         """
         Parameters
         ----------
@@ -51,6 +84,8 @@ class GumblerSimple:
         self.forex_prediction = forex_prediction
         self.min_profit = min_profit
         self.risk_factor = risk_factor
+        if strategy_class is None: strategy_class = Gambler.DefaultStrategy
+        self.strategy_object = strategy_class()
         
         self.buy_price = None
         self.sell_price = None
@@ -69,20 +104,13 @@ class GumblerSimple:
         self.endofdata = False
         self.isready = False
 
-        while True:
-            try:
-                self.__get_profit()
-            except Exception as ex:
-                self.endofdata = True
-                print('END OF DATA')
-                break
-
-            if self.direction is not None:
-                break
-
-    def __get_profit(self):
-        (timestamp, (timestamp, (ask, bid), volume)), \
-            (advice, trans_time, panic, max_panic_time) = self.forex_prediction()
+    def __get_profit(self, forex_prediction=None):
+        if forex_prediction is not None:
+            (timestamp, (timestamp, (ask, bid), volume)), \
+            (advice, trans_time, panic, max_panic_time) = forex_prediction
+        else:
+            (timestamp, (timestamp, (ask, bid), volume)), \
+                (advice, trans_time, panic, max_panic_time) = self.forex_prediction()      
 
         # set ``self.direction`` once only
         if (advice is None) and (self.direction is None):
@@ -114,23 +142,24 @@ class GumblerSimple:
         
         self.profit = profit
 
-    def gamble(self):
+    def gamble(self, forex_prediction=None):
         while True:
             try:
-                self.__get_profit()
+                self.__get_profit(forex_prediction)
             except Exception as ex:
                 self.endofdata = True
                 print('END OF DATA')
                 break
-
+                
             # gambling trategy:
-            if (self.profit >= self.min_profit) and self.max_profit is None:
-                self.max_profit = -sys.float_info.max
-
-            if self.max_profit is not None:
-                self.max_profit = max(self.max_profit, self.profit)
-                if self.profit < self.max_profit * self.risk_factor:
+            if self.direction is not None:
+                if not self.strategy_object.strategy(self):
+                    self.isready = True
                     break
+
+            if forex_prediction is not None:
+                break
+
         self.isready = True
 
     def plot(self):
@@ -154,9 +183,10 @@ def prices(data):
     timestamp, (timestamp, (ask, bid), volume)  = data
     return ask[0], bid[0]
 
-def gambler(forex_prediction, min_profit=3*PIP, risk_factor=0.7, plot=False):
-    g = GumblerSimple(
-        forex_prediction=forex_prediction, min_profit=min_profit, risk_factor=risk_factor)
+def gambler(forex_prediction, min_profit=3*PIP, risk_factor=0.7, plot=False, strategy_class=None):
+    g = Gambler(
+        forex_prediction=forex_prediction, min_profit=min_profit, risk_factor=risk_factor,
+            strategy_class=strategy_class)
     g.gamble()
 
     if plot:
@@ -164,6 +194,40 @@ def gambler(forex_prediction, min_profit=3*PIP, risk_factor=0.7, plot=False):
                 + f', min. profit: {g.min_profit:.1e}')
         g.plot()            
     return g
+
+def run(forex_prediction, min_profit=3*fo.Forecast.PIP, 
+                 risk_factor=0.7, strategy_class=None, 
+                 time_step=5, verbose=False):
+    timestamp_prev = -5 * 60
+    Gambler.gamblers.clear()
+    Gambler.profits.clear
+
+    while True:
+        try:
+            fp = forex_prediction()
+        except:
+            print('END OF DATA')
+            Gambler.clear_gamblers(force=True)
+            break
+
+        if fp[0][0] - timestamp_prev > time_step * 60:
+            import pdb; pdb.set_trace()
+            Gambler.new_instance(fp, min_profit, risk_factor, strategy_class)
+        Gambler.step_gamblers(fp)
+
+    if verbose:
+        total = 0
+        for value in Gambler.profits.values():
+            tptal += value
+        print(f'profit: {total:.1e}, trans. count: >= {len(Gambler.profits)}')
+    
+    return Gambler.profits
+
+def test_run():
+    hd.set_hist_data(data_count=None)
+    oracle = fo.Oracle(hd.ForexProvider())    
+    
+    run(forex_prediction=oracle.prediction)        
 
 def test():
     hd.set_hist_data(data_count=None)
@@ -174,7 +238,8 @@ def test():
                     + f', min. profit: {g.min_profit:.1e}')
  
 def main():
-    test()
+    # test()
+    test_run()
 
 if __name__ == "__main__":
     main()  
