@@ -10,11 +10,11 @@ class Gambler:
     """
     """
     gamblers = []
-    profits = {}
+    profits = []
 
     @classmethod
-    def new_instance(cls, forex_prediction, min_profit=3*fo.Forecast.PIP, 
-                 risk_factor=0.7, strategy_class=None):
+    def new_instance(cls, forex_prediction, min_profit, 
+                 risk_factor, strategy_class=None):
         """Creates a ``Gambler`` class object and includes it into the working
             batch. It proceeds till the end of the transaction when it is killed.
         """
@@ -25,11 +25,8 @@ class Gambler:
     @classmethod
     def clear_gamblers(cls, force=False):
         for g in cls.gamblers:
-            if g.isready or force:
-                if g.timeshot in cls.profits:
-                    cls.profits[g.timeshot] = cls.profits[g.timeshot] + g.profit
-                else:
-                    cls.profits[g.timeshot] = g.profit 
+            if g.isready or force and g.direction is not None:
+                cls.profits.append((g.timestamp, g.direction, len(g.times), g.profit))
                 cls.gamblers.remove(g)
 
     @classmethod
@@ -43,8 +40,6 @@ class Gambler:
         cls.clear_gamblers()
         for g in Gambler.gamblers:
             g.gamble(forex_prediction)
-        
-        return fp
 
     class DefaultStrategy:
         """Envelope for strategy definition of ``Gambler`` objects.
@@ -160,8 +155,6 @@ class Gambler:
             if forex_prediction is not None:
                 break
 
-        self.isready = True
-
     def plot(self):
         _, bidask_pl = plt.subplots()
         bidask_pl.plot(self.times, self.bid_prices, color='blue', label='bid')
@@ -196,7 +189,7 @@ def gambler(forex_prediction, min_profit=3*PIP, risk_factor=0.7, plot=False, str
     return g
 
 def run(forex_prediction, min_profit=3*fo.Forecast.PIP, 
-                 risk_factor=0.7, strategy_class=None, 
+                 risk_factor=0.8, strategy_class=None, 
                  time_step=5, verbose=False):
     timestamp_prev = -5 * 60
     Gambler.gamblers.clear()
@@ -211,15 +204,16 @@ def run(forex_prediction, min_profit=3*fo.Forecast.PIP,
             break
 
         if fp[0][0] - timestamp_prev > time_step * 60:
-            import pdb; pdb.set_trace()
+            timestamp_prev = fp[0][0]
             Gambler.new_instance(fp, min_profit, risk_factor, strategy_class)
         Gambler.step_gamblers(fp)
 
     if verbose:
         total = 0
-        for value in Gambler.profits.values():
-            tptal += value
-        print(f'profit: {total:.1e}, trans. count: >= {len(Gambler.profits)}')
+        
+        for _ in Gambler.profits:
+            total += _[3]
+        print(f'profit: {total:.1e}, trans. count: {len(Gambler.profits)}')
     
     return Gambler.profits
 
@@ -227,7 +221,7 @@ def test_run():
     hd.set_hist_data(data_count=None)
     oracle = fo.Oracle(hd.ForexProvider())    
     
-    run(forex_prediction=oracle.prediction)        
+    run(forex_prediction=oracle.prediction, verbose=True)        
 
 def test():
     hd.set_hist_data(data_count=None)
