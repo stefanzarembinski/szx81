@@ -73,8 +73,8 @@ class Gambler:
         """
         Parameters
         ----------
-        forex_prediction : Generator of recentmost forex data.
-        oracle: Generator of recentmost predictios.
+        forex_prediction : Generator of recentest forex data.
+        strategy_class: Class having a ``strategy`` method.
         """
         self.forex_prediction = forex_prediction
         self.min_profit = min_profit
@@ -146,7 +146,7 @@ class Gambler:
                 print('END OF DATA')
                 break
                 
-            # gambling trategy:
+            # gambling strategy:
             if self.direction is not None:
                 if not self.strategy_object.strategy(self):
                     self.isready = True
@@ -191,6 +191,16 @@ def gambler(forex_prediction, min_profit=3*PIP, risk_factor=0.7, plot=False, str
 def run(forex_prediction, min_profit=3*fo.Forecast.PIP, 
                  risk_factor=0.8, strategy_class=None, 
                  time_step=5, verbose=False):
+    """Runs many ``Gambler`` instances, ``time_step`` one after the previous.
+    Parameters
+    ----------
+    forex_prediction : Generator of recentest forex data.
+    strategy_class: Class having a ``strategy`` method.
+
+    Returns
+    -------
+    profits : List of tuples ``(timestamp, direction, len(times), profit)``
+    """
     timestamp_prev = -5 * 60
     Gambler.gamblers.clear()
     Gambler.profits.clear
