@@ -25,7 +25,7 @@ class Gambler:
     @classmethod
     def clear_gamblers(cls, force=False):
         for g in cls.gamblers:
-            if g.isready or force and g.direction is not None:
+            if g.is_ready or force and g.direction is not None:
                 cls.profits.append((g.timestamp, g.direction, len(g.times), g.profit))
                 cls.gamblers.remove(g)
 
@@ -96,8 +96,8 @@ class Gambler:
         self.profits = []
         self.time = 0
         self.timestamp = None
-        self.endofdata = False
-        self.isready = False
+        self.end_of_file = False
+        self.is_ready = False
 
     def __get_profit(self, forex_prediction=None):
         if forex_prediction is not None:
@@ -142,34 +142,34 @@ class Gambler:
             try:
                 self.__get_profit(forex_prediction)
             except Exception as ex:
-                self.endofdata = True
+                self.end_of_file = True
                 print('END OF DATA')
                 break
                 
             # gambling strategy:
             if self.direction is not None:
                 if not self.strategy_object.strategy(self):
-                    self.isready = True
+                    self.is_ready = True
                     break
 
             if forex_prediction is not None:
                 break
 
     def plot(self):
-        _, bidask_pl = plt.subplots()
-        bidask_pl.plot(self.times, self.bid_prices, color='blue', label='bid')
-        bidask_pl.plot(self.times, self.ask_prices, color='red', label='ask')
+        _, bid_ask_pl = plt.subplots()
+        bid_ask_pl.plot(self.times, self.bid_prices, color='blue', label='bid')
+        bid_ask_pl.plot(self.times, self.ask_prices, color='red', label='ask')
 
-        profit_pl = bidask_pl.twinx()
+        profit_pl = bid_ask_pl.twinx()
         profit_pl.hlines(self.min_profit, self.times[0], 
             self.times[-1], color='black', linestyle='--', label='min. profit')
         profit_pl.plot(self.times, self.profits, color='green', label='profit')
 
         profit_pl.set_ylabel('profit, min. profit, panic', color='green')
-        bidask_pl.set_ylabel('bid, ask', color='black')
+        bid_ask_pl.set_ylabel('bid, ask', color='black')
         
         profit_pl.legend(loc='upper left')
-        bidask_pl.legend(loc='lower right')
+        bid_ask_pl.legend(loc='lower right')
         plt.show()
 
 def prices(data):
