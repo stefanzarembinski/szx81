@@ -2,6 +2,27 @@ import sys
 from os import path
 import importlib
 import scipy.signal as signal
+from IPython.display import HTML, display, Markdown, Latex
+
+def _(text):
+    return display(Markdown(text))
+HTML("""
+<style type="text/css">
+body{
+    width:600px /* or you can also set 90% or 900px*/
+    column-width: 600px
+}
+p {
+    font-size:10px;
+}
+</style>
+""")
+
+def jupiter_dir():
+    # https://stackoverflow.com/questions/52119454/how-to-obtain-jupyter-notebooks-path
+    import os
+    return os.path.abspath('')
+
 import setup
 
 SETUP = setup.CONFIG
