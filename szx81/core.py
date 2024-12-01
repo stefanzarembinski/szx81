@@ -4,6 +4,8 @@ import importlib
 import scipy.signal as signal
 from IPython.display import HTML, display, Markdown, Latex
 
+import config_all
+
 def _(text):
     return display(Markdown(text))
 HTML("""
@@ -23,13 +25,13 @@ def jupiter_dir():
     import os
     return os.path.abspath('')
 
-import setup
+# import setup
 
-SETUP = setup.CONFIG
+SETUP = config_all.CONFIG
 TEST_DATA_DIR = path.join(path.dirname(__file__), '../', SETUP['forex'])
 sys.path.append(TEST_DATA_DIR)
 import config # type: ignore
-importlib.reload(config)
+importlib.reload(config_all)
 
 TEST_DATA = 'test_data'
 WARMUP_TIME = config.MA_WINDOW_SIZE # min
