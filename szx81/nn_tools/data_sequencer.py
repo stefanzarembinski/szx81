@@ -30,16 +30,16 @@ class SinusDataSource:
         return -1
     
     @staticmethod
-    def sinus_data(begin, end):
-        return [math.sin(i * .1) + random.uniform(-.5, .5) for i in range(begin, end)]
+    def sinus_data(begin, count):
+        return [math.sin(i * .1) + random.uniform(-.5, .5) for i in range(begin, begin + count + 1)]
 
     def get_data(self, end_index, count, debug=False):
         begin = end_index - count - 1
-        end = end_index     
+        end = end_index 
+        indexes = [i for i in range(begin, end)]      
         if debug:
-           return [(i, i) for i in range(begin, end)]
-        data = self.sinus_data(begin, end)
-        return [(data[i - begin], i) for i in range(begin, end)]
+           return indexes, indexes
+        return self.sinus_data(begin, count), indexes
 
 class ForexDataSource:
     _instance = None
@@ -67,8 +67,8 @@ class ForexDataSource:
         end = end_index 
         indexes = [i for i in range(begin, end)]      
         if debug:
-           return [(i, i) for i in range(begin, end)]
-        return [(self.data_x[i], i) for i in range(begin, end)]
+           return indexes, indexes
+        return self.data_x[begin: end], indexes
 
 class ContextSequencer:
     # _instance = None
@@ -102,7 +102,7 @@ class ContextSequencer:
             raise Exception('data_source is None or end_index < 0 ' \
                         + 'or end_index + data_len > data_source()')
         
-        data = self.data_source.get_data(
+        data, _ = self.data_source.get_data(
                             end_index, count + seq_len + self.future_len, debug)
         list_x = []
         list_y = []
@@ -120,6 +120,7 @@ class ContextSequencer:
         data_len = count + self.future_len + self.seq_len
 
         if debug:
+            
             title = ''
             title += f'end={self.end_index} '
             title += f'data len={data_len}, seq_len={self.seq_len}, count={count} '
@@ -130,7 +131,7 @@ class ContextSequencer:
 
         if debug:
             retval = x, y, self.data_source.get_data(
-                                    self.end_index, count + self.seq_len)    
+                                        self.end_index, count + self.seq_len)
             
         self.end_index = self.end_index + data_len
 
@@ -148,17 +149,16 @@ class ContextSequencer:
         end_index = self.training_end + dist_count
         begin_index = end_index - context_count
         if verbose:
-            print(f'begin index: {begin_index}, end index: {end_index}')
-        x, y = self.__create_sequences(
-                                end_index, self.seq_len, context_count)        
-        return x, y, 
+            print(f'begin index: {begin_index}, end index: {end_index}')        
+        return self.__create_sequences(
+                                end_index, self.seq_len, context_count)
     
     def plot(self):
         count = 10
-        x, y, data = self.get_sequences(count=count, debug=True)
+        x, y, (data, indexes) = self.get_sequences(count=count, debug=True)
 
         _, ax1 = plt.subplots()
-        ax1.plot(data, color='black', label='data')
+        ax1.plot(indexes, data, color='black', label='data')
         ax1.set_ylabel('data', color='black')
 
         ax2 = ax1.twinx()
@@ -168,10 +168,10 @@ class ContextSequencer:
             if first:
                 first = False
                 ax2.scatter(
-                    x, label='context', color='blue')
-                ax2.scatter(y, label='target', color='orange')
-            ax2.scatter(x, color='blue')
-            ax2.scatter(y, color='orange')            
+                    x[i], [i] * len(x[i]), label='context', color='blue')
+                ax2.scatter(y[i], [i], label='target', color='orange')
+            ax2.scatter(x[i], [i] * len(x[i]), color='blue')
+            ax2.scatter(y[i], [i], color='orange')            
 
         plt.legend()
         plt.show()
@@ -179,7 +179,7 @@ class ContextSequencer:
 
 def test_debug():
     cs = ContextSequencer(
-        SinusDataSource, end_day=1, seq_len=10, future_len=2)
+        ForexDataSource, end_day=1, seq_len=10, future_len=2)
     cs.plot()
 
 def test():
@@ -196,8 +196,8 @@ def test():
     print(f'end_index: {cs.end_index}')
 
 def main():
-    test_debug()
-    # test()
+    # test_debug()
+    test()
     
 
 if __name__ == "__main__":
