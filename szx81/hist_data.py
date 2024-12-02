@@ -8,7 +8,7 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 import core as co
-from core import config
+from core import config_all
 
 def save_data(data):
     file = path.join(co.DATA_STORE, f'hist_data.pkl')
@@ -36,7 +36,7 @@ class HistData:
         if data_count is not None:
             data_count += _warmup_time
         if start_time is not None:
-            start_time -= _warmup_time * config.PERIOD * 60
+            start_time -= _warmup_time * config_all.PERIOD * 60
         self.data_count = data_count
         self.start_time = start_time
         
@@ -46,13 +46,13 @@ class HistData:
         bid_files = []
         
         for data_file in os.listdir(self.data_dir):
-            rex = co.config.FILE_FORMAT
+            rex = co.config_all.FILE_FORMAT
             pair, direction, date_from, date_till = re.match(rex, data_file).groups()
             if pair != co.SETUP['forex']:
                 raise RuntimeError('Wrong forex currency pair!')
-            strptime = datetime.datetime.strptime(date_from, co.config.FILENAME_TIMESTRING)
+            strptime = datetime.datetime.strptime(date_from, co.config_all.FILENAME_TIMESTRING)
             timestamp_from = time.mktime(strptime.timetuple())
-            strptime = datetime.datetime.strptime(date_till, co.config.FILENAME_TIMESTRING)
+            strptime = datetime.datetime.strptime(date_till, co.config_all.FILENAME_TIMESTRING)
             timestamp_till = time.mktime(strptime.timetuple())
             # import pdb; pdb.set_trace()
             files = ask_files if direction == 'ASK' else bid_files
@@ -101,7 +101,7 @@ class HistData:
     def read_data_files(self, direction):
         start_time = self.start_time
         data_count = self.data_count
-        timestring_format = config.TIME_STRING
+        timestring_format = config_all.TIME_STRING
 
         for data_file in self.directions[direction]:
             
@@ -125,7 +125,7 @@ class HistData:
                             break
                         data_count -= 1
                     
-                    if not timestamp % config.PERIOD == 0:
+                    if not timestamp % config_all.PERIOD == 0:
                         raise RuntimeError('Wrong data period!')
 
                     _values = []
@@ -186,7 +186,7 @@ def plot(count=None):
     bid = []
     diff = []
     _x = 0
-    deltax = config.PERIOD / 60
+    deltax = config_all.PERIOD / 60
     for _xy in plot_values:
         x.append(_x)
         _x += deltax

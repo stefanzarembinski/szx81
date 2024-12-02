@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pickle
 import core as co
-from core import config
+from core import config_all
 import piecewise_fit as ls
 import hist_data as hd
 
@@ -40,8 +40,8 @@ class Forecast:
     PIP = 1e-4 # XTB min spread is 0.5 pip for STANDARD account. Market spread min. is 0.1 pip
     FILE = path.join(
             co.DATA_STORE,
-            f'trend_{round(config.FORECAST_THRESHOLD / PIP)}_' \
-        + f'{config.FORECAST_WINDOW}_.pkl')
+            f'trend_{round(config_all.FORECAST_THRESHOLD / PIP)}_' \
+        + f'{config_all.FORECAST_WINDOW}_.pkl')
     
     @classmethod
     def dump(cls, prediction, file=FILE):
@@ -56,7 +56,7 @@ class Forecast:
     
     def __init__(self, data, threshold=None):
         self.data = data
-        self.threshold = config.FORECAST_THRESHOLD \
+        self.threshold = config_all.FORECAST_THRESHOLD \
             if threshold is None else threshold
         self.panic = None
         self.advice = None
@@ -67,7 +67,7 @@ class Forecast:
             co.DATA_STORE, 
             f'trend_{round(self.threshold / Forecast.PIP)}_{len(data)}_.pkl')
         
-        self.panic_threshold = config.PANIC_THRESHOLD
+        self.panic_threshold = config_all.PANIC_THRESHOLD
         self.mean = (np.array([_[1][0][0] for _ in data]) + np.array([_[1][1][0] for _ in data])) / 2
         self.mean = self.mean - self.mean[0]
         spread = (np.array([_[1][0][0] for _ in data]) - np.array([_[1][1][0] for _ in data]))
@@ -246,8 +246,8 @@ def set_trend_predictions(data_count=None):
 
     hd.set_hist_data(data_count, moving_av=True)
     
-    forecast_window = config.FORECAST_WINDOW
-    threshold = config.FORECAST_THRESHOLD
+    forecast_window = config_all.FORECAST_WINDOW
+    threshold = config_all.FORECAST_THRESHOLD
     shift = 0
     step = 1
     prediction = {}

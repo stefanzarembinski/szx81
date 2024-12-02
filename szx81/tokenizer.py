@@ -7,7 +7,7 @@ np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import core as co
-from core import config
+from core import config_all
 import piecewise_fit as ls
 import hist_data as td
 
