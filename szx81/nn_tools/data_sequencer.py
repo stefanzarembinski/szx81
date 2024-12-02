@@ -16,15 +16,15 @@ TESTING_NUM = 1 * DAY
 SEQ_LEN = 10
 
 class SinusDataSource:
-    __instance = None
-    @classmethod
-    def get_instance(cls):
-        if cls.__instance is None:
-            cls.__instance = cls()
-        return cls.__instance
-    
+    _instance = None
+
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super(SinusDataSource, cls).__new__(cls)
+        return cls._instance    
+
     def __init__(self):
-        pass        
+        pass
 
     def len(self):
         return -1
@@ -42,12 +42,11 @@ class SinusDataSource:
         return self.sinus_data(begin, count), indexes
 
 class ForexDataSource:
-    __instance = None
-    @classmethod
-    def get_instance(cls):
-        if cls.__instance is None:
-            cls.__instance = cls()
-        return cls.__instance
+    _instance = None
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super(ForexDataSource, cls).__new__(cls)
+        return cls._instance  
     
     def __init__(self):
         hd.set_hist_data(data_count=None)
@@ -72,11 +71,20 @@ class ForexDataSource:
         return self.data_x[begin: end], indexes
 
 class ContextSequencer:
+    _instance = None
+    def __new__(cls, 
+                data_source_class, 
+                seq_len=SEQ_LEN,  
+                future_len=FUTURE, end_day=0):
+        if not cls._instance:
+            cls._instance = super(ContextSequencer, cls).__new__(cls)
+        return cls._instance 
+
     def __init__(self, 
                 data_source_class, 
                 seq_len=SEQ_LEN,  
                 future_len=FUTURE, end_day=0):
-        self.data_source = data_source_class.get_instance()
+        self.data_source = data_source_class()
         self.seq_len = seq_len
         self.future_len = future_len
         self.end_index = end_day * DAY
@@ -88,7 +96,7 @@ class ContextSequencer:
         is shifted by 1 from the previous.
         """
         data, _ = self.data_source.get_data(
-                                end_index, count + seq_len, debug)
+                            end_index, count + seq_len + self.future_len, debug)
         list_x = []
         list_y = []
         for i in range(count):
@@ -128,15 +136,9 @@ class ContextSequencer:
 
         return retval
     
-    @classmethod
-    def plot(cls, data_source_class):
-        seq_len = 3
-        future_len = 2
+    def plot(self):
         count = 10
-        cs = cls(
-            data_source_class, end_day=10, 
-            seq_len=seq_len, future_len=future_len)
-        x, y, (data, indexes) = cs.get_sequences(count=count, debug=True)
+        x, y, (data, indexes) = self.get_sequences(count=count, debug=True)
 
         _, ax1 = plt.subplots()
         ax1.plot(indexes, data, color='black', label='data')
@@ -144,10 +146,15 @@ class ContextSequencer:
 
         ax2 = ax1.twinx()
         ax1.set_ylabel('context sequences', color='blue')
+        first = True
         for i in range(count):
-            # import pdb; pdb.set_trace()
+            if first:
+                first = False
+                ax2.scatter(
+                    x[i], [i] * len(x[i]), label='context', color='blue')
+                ax2.scatter(y[i], [i], label='target', color='orange')
             ax2.scatter(x[i], [i] * len(x[i]), color='blue')
-            ax2.scatter(y[i], [i], color='orange')
+            ax2.scatter(y[i], [i], color='orange')            
 
         plt.legend()
         plt.show()
@@ -155,14 +162,26 @@ class ContextSequencer:
 
 def test_debug():
     cs = ContextSequencer(
-        SinusDataSource, end_day=1, seq_len=10, future_len=2)
-    ContextSequencer.plot(SinusDataSource)
+        ForexDataSource, end_day=1, seq_len=10, future_len=2)
+    cs.plot()
 
 def test():
-    x_train, y_train, x_test, y_test = ContextSequencer(ForexDataSource).get_train_test_data(ForexDataSource)
+    end_day = 2
+    context_len = 10
+    future_len = 5
+
+    cs = ContextSequencer(
+        ForexDataSource, end_day=end_day, seq_len=context_len, 
+        future_len=future_len)
+    x, y = cs.get_sequences(count=1000)
+    print(f'x:\n{x[-1]}')
+    print(f'y:\n{y[-1]}')
+    print(f'end_index: {cs.end_index}')
 
 def main():
-    test_debug()
+    # test_debug()
+    test()
+    
 
 if __name__ == "__main__":
     main()  
