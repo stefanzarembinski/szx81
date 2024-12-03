@@ -88,12 +88,12 @@ class ContextSequencer:
         self.seq_len = seq_len
         self.future_len = future_len
         self.end_index = end_day * DAY
-        self.training_end = None
+        self.trained_indexes = set()
+        self.last_trained_index = None
 
     def __create_sequences(self, end_index, seq_len, count, debug=False):
         """Lists sequences of ``data`` items, ``seq_len`` long, ``count`` 
-        of them, starting from ``end_index`` index of ``data``. Each next sequence 
-        is shifted by 1 from the previous.
+        of them, ending - not including - ``end_index`` index of ``data``. Each next sequence is shifted by 1 from the previous.
         """
         data_len = count + self.future_len + self.seq_len
         if self.data_source is None or self.end_index < 0 \
@@ -102,21 +102,23 @@ class ContextSequencer:
             raise Exception('data_source is None or end_index < 0 ' \
                         + 'or end_index + data_len > data_source()')
         
-        data, _ = self.data_source.get_data(
+        data, indexes = self.data_source.get_data(
                             end_index, count + seq_len + self.future_len, debug)
         list_x = []
         list_y = []
+        y_indexes = set()
         for i in range(count):
             x = data[i: (i + seq_len)]
             list_x.append(x)
+            y_indexes.add(indexes[i + seq_len + self.future_len - 1])
             list_y.append(data[i + seq_len + self.future_len - 1])
         # import pdb; pdb.set_trace()
-        return np.array(list_x), np.array(list_y)
+        return np.array(list_x), np.array(list_y), y_indexes
     
     def get_sequences(self, count, debug=False):
-        x, y = self.__create_sequences(
+        x, y, indexes = self.__create_sequences(
                                 self.end_index, self.seq_len, count, debug)
-        retval = x, y
+        retval = x, y, indexes
         data_len = count + self.future_len + self.seq_len
 
         if debug:
@@ -138,20 +140,32 @@ class ContextSequencer:
         return retval
     
     def get_training(self, count, verbose=True):
-        self.training_end = self.end_index
+        self.last_trained_index = self.end_index
         begin_index = self.end_index
-        retval = self.get_sequences(count)
+
+        x, y, indexes = self.get_sequences(count)
+        
+        self.trained_indexes = self.trained_indexes | indexes
         if verbose:
             print(f'begin index: {begin_index}, end index: {self.end_index}, count:{count}')
-        return retval
+        return x, y
     
-    def get_testing(self, context_count, dist_count, verbose=True):
-        end_index = self.training_end + dist_count
-        begin_index = end_index - context_count
+    def get_testing(self, context_count, dist_count, test_count, verbose=True):
+        """Returns test data ``count`` long, beginning ``dist_count``after  training end. The data have prepended ``context_count`` long 
+        'warming-up' part.
+        """
+        count = context_count + test_count
+        end_index = self.last_trained_index + dist_count + test_count
+        begin_index = end_index - count
         if verbose:
-            print(f'begin index: {begin_index}, end index: {end_index}')        
-        return self.__create_sequences(
-                                end_index, self.seq_len, context_count)
+            print(f'test count: {test_count}, begin index: {begin_index}, end index: {end_index}')
+
+        x, y, indexes  = self.__create_sequences(
+                                end_index, self.seq_len, count)
+        if len(self.trained_indexes & set(indexes)) > 0:
+            raise Exception('Testing data include trained parts!')
+            
+        return  x, y
     
     def plot(self):
         count = 10
