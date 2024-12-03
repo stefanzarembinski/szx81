@@ -31,7 +31,7 @@ class SinusDataSource:
     
     @staticmethod
     def sinus_data(begin, count):
-        return [math.sin(i * .1) + random.uniform(-.5, .5) for i in range(begin, begin + count + 1)]
+        return [math.sin(i * .1) + random.uniform(-.1, .1) for i in range(begin, begin + count + 1)]
 
     def get_data(self, end_index, count, debug=False):
         begin = end_index - count - 1
@@ -91,7 +91,7 @@ class ContextSequencer:
         self.trained_indexes = set()
         self.last_trained_index = None
 
-    def __create_sequences(self, end_index, seq_len, count, debug=False):
+    def create_sequences(self, end_index, seq_len, count, debug=False):
         """Lists sequences of ``data`` items, ``seq_len`` long, ``count`` 
         of them, ending - not including - ``end_index`` index of ``data``. Each next sequence is shifted by 1 from the previous.
         """
@@ -116,7 +116,7 @@ class ContextSequencer:
         return np.array(list_x), np.array(list_y), y_indexes
     
     def get_sequences(self, count, debug=False):
-        x, y, indexes = self.__create_sequences(
+        x, y, indexes = self.create_sequences(
                                 self.end_index, self.seq_len, count, debug)
         retval = x, y, indexes
         data_len = count + self.future_len + self.seq_len
@@ -160,7 +160,7 @@ class ContextSequencer:
         if verbose:
             print(f'test count: {test_count}, begin index: {begin_index}, end index: {end_index}')
 
-        x, y, indexes  = self.__create_sequences(
+        x, y, indexes  = self.create_sequences(
                                 end_index, self.seq_len, count)
         if len(self.trained_indexes & set(indexes)) > 0:
             raise Exception('Testing data include trained parts!')
