@@ -1,3 +1,4 @@
+import math
 import numpy as np
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
 np.random.seed(0)
@@ -17,15 +18,18 @@ import core as co
 from core import _
 import hist_data as hd
 import nn_tools.data_sequencer as ds
+import nn_tools.data_source as ns
 
 
 class Preprocessor:
-    def __init__(self):
+    def __init__(self, null=False):
         self.ss = StandardScaler()
-        self.mm = MinMaxScaler()
+        self.mm = StandardScaler() #MinMaxScaler()
+        self.null = null
 
     def pre(self, x, y=None):
-        x = self.ss.fit_transform(x)
+        if not self.null:
+            x = self.ss.fit_transform(x)
         x = Variable(torch.Tensor(x))
         x = torch.reshape(x, (x.shape[0], 1, x.shape[1]))
 
@@ -33,11 +37,14 @@ class Preprocessor:
             return x
         
         y = y.reshape(-1, 1)
-        y = self.mm.fit_transform(y)
+        if not self.null:
+            y = self.mm.fit_transform(y)
         y = Variable(torch.Tensor(y))
         return x, y
     
     def inverse_x(self, predicted):
+        if self.null:
+            return predicted
         return self.mm.inverse_transform(predicted)
 
 class Model(nn.Module):
@@ -79,8 +86,6 @@ class NnDriver:
         ):
 
         self.preprocessor = Preprocessor()
-        # self.ss = None
-        # self.mm = None
         self.num_epochs = num_epochs
         self.accuracy = accuracy
         self.learning_rate = learning_rate
@@ -100,22 +105,6 @@ class NnDriver:
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=learning_rate) 
-        
-    # def data_preprocessing(self, X, y):
-    #     if self.ss is None:
-    #         self.ss = StandardScaler()
-    #     if self.mm is None:
-    #         self.mm = MinMaxScaler()
-
-    #     X = self.ss.fit_transform(X)
-    #     X = Variable(torch.Tensor(X))
-    #     X = torch.reshape(X, (X.shape[0], 1, X.shape[1]))
-
-    #     y = y.reshape(-1, 1)
-    #     y = self.mm.fit_transform(y)
-    #     y = Variable(torch.Tensor(y))
-
-        # return X, y 
     
     def get_training(self, end_day=None, data_count=1000, verbose=False):
         if end_day is not None:
@@ -125,9 +114,9 @@ class NnDriver:
         return x, y
 
     def train(self, end_day=None, data_count=1000):
-        x, y = self.get_training(end_day, data_count, verbose=self.verbose)
-        x, y = self.preprocessor.pre(x, y)
-        # x, y = self.data_preprocessing(x, y)
+        x_, y_ = self.get_training(end_day, data_count, verbose=self.verbose)
+        # self.preprocessor.null = True
+        x, y = self.preprocessor.pre(x_, y_)
         
         loss0 = None
         prev_loss = None
@@ -141,53 +130,86 @@ class NnDriver:
 
             if loss.item() / loss0 < self.accuracy:
                 break
-            # if prev_loss is not None \
-            #     and (1 - loss.item() / prev_loss) < self.accuracy:
-            #     break
+            if prev_loss is not None \
+                and math.fabs(1 - loss.item() / prev_loss) < self.accuracy:
+                break
             
-            prev_loss = loss.item()
             self.optimizer.step()
 
             if self.verbose:
                 if (epoch + 1) % 10 == 0:
                     print(
-                f'Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.1e}')
+                f'Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.1e},  Diff: {1 - loss.item() / prev_loss:.1e}')
+            
+            prev_loss = loss.item()
     
     def prediction(self, x, y):
-        predicted = self.model(
-        self.preprocessor.pre(x)).detach().numpy()#forward pass
-        # x, y = self.data_preprocessing(x, y)
         x, y = self.preprocessor.pre(x, y)
-
-        # predicted = self.mm.inverse_transform(predicted)
+        predicted = self.model(x).detach().numpy()#forward pass
         predicted = self.preprocessor.inverse_x(predicted)
-        return predicted[-1][-1]
+        return predicted
     
-    def show_action(self, shift=50):
+    def show_action1(self, shift=50, count=50):
         end_index = self.context_seq.last_trained_index + shift
         fact = []
         pred = []
-        for i in range(20):
+        for i in range(count):
             future_index = end_index + self.context_seq.future_len + i
             current_index = end_index + i
-            data, indexes = self.context_seq.data_source.get_data(end_index=future_index, count=0)
+            data, indexes = self.context_seq.data_source.\
+                get_data(end_index=future_index, count=0)
             fact.append(data[0])
 
             x, y, _ = self.context_seq.create_sequences(
-                current_index, self.context_seq.seq_len, 
-                    self.model.num_layers * self.model.input_size)
+                end_index=current_index, 
+                seq_len=self.context_seq.seq_len, 
+                count=self.model.num_layers * self.model.input_size
+                )
             pred.append(self.prediction(x, y))
+
+        # plt.plot(fact, label='fact', color='green')
+        # plt.plot(pred, label='prediction', color='blue')
 
         plt.plot(fact, label='fact', color='green')
         plt.plot(pred, label='prediction', color='blue')
+        # for i in range(len(fact)):
+        #     plt.scatter(i, fact[i], color='green')
+        #     plt.scatter(i + self.context_seq.future_len, pred[i], color='blue')
+        #     plt.plot(
+        #         [i, i + self.context_seq.future_len],
+        #         [fact[i], pred[i]], color='red', alpha=0.5)
+
+        plt.legend()
+        plt.show()
+
+    def __prediction(self, shift=50, count=50):
+        warmup_len = self.model.num_layers * self.model.input_size
+        x, y, indexes = self.context_seq.create_sequences(
+            end_index=self.context_seq.last_trained_index + shift + count, 
+            seq_len=self.context_seq.seq_len, 
+            count=warmup_len + count
+            )
+        predicted = self.prediction(x, y)
+        future_len = self.context_seq.future_len
+        x_act = np.array([_[-1] for _ in x][warmup_len + 2 * future_len:])
+        y_act = np.array(y[warmup_len:])
+        y_pred = np.array([_[0] for _ in predicted][warmup_len:])
+        return x_act, y_act, y_pred     
+
+    def show_action(self, shift=50, count=50):
+        x_act, y_act, y_pred = self.__prediction(shift, count)
+
+        plt.plot(x_act, label='actual feature', color='red')
+        plt.plot(y_pred, label='prediction', color='green')
+        plt.plot(y_act, label='actual target', color='blue') 
+                   
         plt.legend()
         plt.show()
 
 def test():
     hd.set_hist_data(data_count=None)
-
     dr = NnDriver(
-        data_source_class=ds.ForexDataSource,
+        data_source_class=ns.SinusDataSource,
         model_class=Model,
         verbose=True
         )

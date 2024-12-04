@@ -1,74 +1,16 @@
-import random
-import math
 import numpy as np
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
 np.random.seed(0)
 
 import matplotlib.pyplot as plt
 
-import core as co
-import hist_data as hd
+import nn_tools.data_source as ds
 
 DAY = 60 * 24
 FUTURE = 5
 TRAINING_NUM = 2 * DAY
 TESTING_NUM = 1 * DAY
 SEQ_LEN = 10
-
-class SinusDataSource:
-    _instance = None
-
-    def __new__(cls):
-        if not cls._instance:
-            cls._instance = super(SinusDataSource, cls).__new__(cls)
-        return cls._instance    
-
-    def __init__(self):
-        pass
-
-    def len(self):
-        return -1
-    
-    @staticmethod
-    def sinus_data(begin, count):
-        return [math.sin(i * .1) + random.uniform(-.1, .1) for i in range(begin, begin + count + 1)]
-
-    def get_data(self, end_index, count, debug=False):
-        begin = end_index - count - 1
-        end = end_index 
-        indexes = [i for i in range(begin, end)]      
-        if debug:
-           return indexes, indexes
-        return self.sinus_data(begin, count), indexes
-
-class ForexDataSource:
-    _instance = None
-    def __new__(cls):
-        if not cls._instance:
-            cls._instance = super(ForexDataSource, cls).__new__(cls)
-        return cls._instance  
-    
-    def __init__(self):
-        hd.set_hist_data(data_count=None)
-        hd_values = list(hd.DICT_DATA.values())
-        self.data_x = []
-        self.data_y = []
-        for val in hd_values:
-            y = (val[1][0][0] + val[1][1][0]) / 2
-            self.data_y.append(y)
-            # self.data_x.append((y, hd_values[i][2]))
-            self.data_x.append(y)        
-
-    def len(self):
-        return len(self.data_x)
-    
-    def get_data(self, end_index, count, debug=False):
-        begin = end_index - count - 1
-        end = end_index 
-        indexes = [i for i in range(begin, end)]      
-        if debug:
-           return indexes, indexes
-        return self.data_x[begin: end], indexes
 
 class ContextSequencer:
     # _instance = None
@@ -184,10 +126,9 @@ class ContextSequencer:
         plt.legend()
         plt.show()
 
-
 def test_debug():
     cs = ContextSequencer(
-        ForexDataSource, end_day=1, seq_len=10, future_len=2)
+        ds.ForexDataSource, end_day=1, seq_len=10, future_len=2)
     cs.plot()
 
 def test():
@@ -196,7 +137,7 @@ def test():
     future_len = 5
 
     cs = ContextSequencer(
-        ForexDataSource, end_day=end_day, seq_len=context_len, 
+        ds.ForexDataSource, end_day=end_day, seq_len=context_len, 
         future_len=future_len)
     x, y = cs.get_sequences(count=1000)
     print(f'x:\n{x[-1]}')
