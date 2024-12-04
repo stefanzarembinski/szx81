@@ -1,8 +1,3 @@
-import sys
-import os
-from os import path
-import importlib
-
 import numpy as np
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
 np.random.seed(0)
@@ -83,8 +78,9 @@ class NnDriver:
                  verbose = False
         ):
 
-        
         self.preprocessor = Preprocessor()
+        # self.ss = None
+        # self.mm = None
         self.num_epochs = num_epochs
         self.accuracy = accuracy
         self.learning_rate = learning_rate
@@ -104,6 +100,22 @@ class NnDriver:
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=learning_rate) 
+        
+    # def data_preprocessing(self, X, y):
+    #     if self.ss is None:
+    #         self.ss = StandardScaler()
+    #     if self.mm is None:
+    #         self.mm = MinMaxScaler()
+
+    #     X = self.ss.fit_transform(X)
+    #     X = Variable(torch.Tensor(X))
+    #     X = torch.reshape(X, (X.shape[0], 1, X.shape[1]))
+
+    #     y = y.reshape(-1, 1)
+    #     y = self.mm.fit_transform(y)
+    #     y = Variable(torch.Tensor(y))
+
+        # return X, y 
     
     def get_training(self, end_day=None, data_count=1000, verbose=False):
         if end_day is not None:
@@ -115,8 +127,10 @@ class NnDriver:
     def train(self, end_day=None, data_count=1000):
         x, y = self.get_training(end_day, data_count, verbose=self.verbose)
         x, y = self.preprocessor.pre(x, y)
+        # x, y = self.data_preprocessing(x, y)
         
         loss0 = None
+        prev_loss = None
         for epoch in range(self.num_epochs):
             outputs = self.model(x)
             self.optimizer.zero_grad()
@@ -124,8 +138,14 @@ class NnDriver:
             loss.backward()
             if loss0 is None:
                 loss0 = loss.item()
+
             if loss.item() / loss0 < self.accuracy:
                 break
+            # if prev_loss is not None \
+            #     and (1 - loss.item() / prev_loss) < self.accuracy:
+            #     break
+            
+            prev_loss = loss.item()
             self.optimizer.step()
 
             if self.verbose:
@@ -136,8 +156,10 @@ class NnDriver:
     def prediction(self, x, y):
         predicted = self.model(
         self.preprocessor.pre(x)).detach().numpy()#forward pass
+        # x, y = self.data_preprocessing(x, y)
+        x, y = self.preprocessor.pre(x, y)
 
-        self.preprocessor.pre(x, y)
+        # predicted = self.mm.inverse_transform(predicted)
         predicted = self.preprocessor.inverse_x(predicted)
         return predicted[-1][-1]
     
@@ -150,9 +172,10 @@ class NnDriver:
             current_index = end_index + i
             data, indexes = self.context_seq.data_source.get_data(end_index=future_index, count=0)
             fact.append(data[0])
+
             x, y, _ = self.context_seq.create_sequences(
                 current_index, self.context_seq.seq_len, 
-                self.model.num_layers * self.model.input_size)
+                    self.model.num_layers * self.model.input_size)
             pred.append(self.prediction(x, y))
 
         plt.plot(fact, label='fact', color='green')
