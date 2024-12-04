@@ -104,13 +104,16 @@ class NnDriver:
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=learning_rate) 
-
-    def train(self, end_day=None, data_count=1000):
+    
+    def get_training(self, end_day=None, data_count=1000, verbose=False):
         if end_day is not None:
             self.context_seq.end_index = end_day * 60 * 24
-
         x, y = self.context_seq.get_training(
-                                data_count, self.verbose)
+                                data_count, verbose)
+        return x, y
+
+    def train(self, end_day=None, data_count=1000):
+        x, y = self.get_training(end_day, data_count, verbose=self.verbose)
         x, y = self.preprocessor.pre(x, y)
         
         loss0 = None

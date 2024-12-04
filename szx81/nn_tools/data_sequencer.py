@@ -87,7 +87,7 @@ class ContextSequencer:
         self.data_source = data_source_class()
         self.seq_len = seq_len
         self.future_len = future_len
-        self.end_index = end_day * DAY
+        self.first_trained_index = end_day * DAY
         self.trained_indexes = set()
         self.last_trained_index = None
 
@@ -96,9 +96,9 @@ class ContextSequencer:
         of them, ending - not including - ``end_index`` index of ``data``. Each next sequence is shifted by 1 from the previous.
         """
         data_len = count + self.future_len + self.seq_len
-        if self.data_source is None or self.end_index < 0 \
+        if self.data_source is None or self.first_trained_index < 0 \
                 or (self.data_source.len() > 0) \
-                    and self.end_index + data_len > self.data_source.len():
+                    and self.first_trained_index + data_len > self.data_source.len():
             raise Exception('data_source is None or end_index < 0 ' \
                         + 'or end_index + data_len > data_source()')
         
@@ -117,14 +117,13 @@ class ContextSequencer:
     
     def get_sequences(self, count, debug=False):
         x, y, indexes = self.create_sequences(
-                                self.end_index, self.seq_len, count, debug)
+                        self.first_trained_index, self.seq_len, count, debug)
         retval = x, y, indexes
         data_len = count + self.future_len + self.seq_len
-
+        self.last_trained_index = self.first_trained_index + data_len
         if debug:
-            
             title = ''
-            title += f'end={self.end_index} '
+            title += f'end={self.first_trained_index} '
             title += f'data len={data_len}, seq_len={self.seq_len}, count={count} '
             title += f'future_len={self.future_len}'
             print(title)
@@ -133,21 +132,16 @@ class ContextSequencer:
 
         if debug:
             retval = x, y, self.data_source.get_data(
-                                        self.end_index, count + self.seq_len)
-            
-        self.end_index = self.end_index + data_len
+                                self.first_trained_index, count + self.seq_len)
 
         return retval
     
     def get_training(self, count, verbose=True):
-        self.last_trained_index = self.end_index
-        begin_index = self.end_index
-
         x, y, indexes = self.get_sequences(count)
         
         self.trained_indexes = self.trained_indexes | indexes
         if verbose:
-            print(f'begin index: {begin_index}, end index: {self.end_index}, count:{count}')
+            print(f'begin index: {self.first_trained_index}, end index: {self.last_trained_index}, count:{count}')
         return x, y
     
     def get_testing(self, context_count, dist_count, test_count, verbose=True):
