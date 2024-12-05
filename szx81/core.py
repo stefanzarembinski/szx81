@@ -3,11 +3,26 @@ from os import path
 import importlib
 import scipy.signal as signal
 from IPython.display import HTML, display, Markdown, Latex
+import textwrap
 
 import config_all
 
-def _(text):
+def wrap_text(text, width=80):
+    wrapped_text = ''
+    for element in textwrap.TextWrapper(
+        width=width,
+        replace_whitespace=False
+        ).wrap(text=text):
+        wrapped_text += element + '<br>'
+    return wrapped_text
+
+def _(text, width=80):
+    text = wrap_text(text, width)
     return display(Markdown(text))
+
+def _nw(text):
+    return display(Markdown(text))
+
 HTML("""
 <style type="text/css">
 body{

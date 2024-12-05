@@ -28,7 +28,7 @@ class Preprocessor:
         self.null = null
 
     def pre(self, x, y=None):
-        if not self.null:
+        if not self.null: 
             x = self.ss.fit_transform(x)
         x = Variable(torch.Tensor(x))
         x = torch.reshape(x, (x.shape[0], 1, x.shape[1]))
@@ -84,27 +84,36 @@ class NnDriver:
                  learning_rate=0.001,
                  verbose = False
         ):
-
-        self.preprocessor = Preprocessor()
         self.num_epochs = num_epochs
         self.accuracy = accuracy
         self.learning_rate = learning_rate
+
+        self.preprocessor = Preprocessor()
         self.context_seq = ds.ContextSequencer(
             data_source_class = data_source_class, 
             end_day=2, 
             seq_len=context_len, 
             future_len=future_len
-        )  
-        self.verbose = verbose
+        ) 
         self.model = model_class(
             input_size=context_len, 
             hidden_size=hidden_size, 
             num_layers=num_layers, 
             output_size=1
             )
+        self.data_source = self.context_seq.data_source
+        
+        self.verbose = verbose        
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=learning_rate) 
+            self.model.parameters(), lr=learning_rate)
+        self.__setup()
+        
+    def __setup(self):
+        pass
+        # count = self.context_seq.seq_len + self.context_seq.future_len
+        # data, _ = self.data_source.get_data(2 * count, count)
+        # self.model.output_size = len(data[0])
     
     def get_training(self, end_day=None, data_count=1000, verbose=False):
         if end_day is not None:
@@ -113,7 +122,10 @@ class NnDriver:
                                 data_count, verbose)
         return x, y
 
-    def train(self, end_day=None, data_count=1000):
+    def train(self, end_day=None, data_count=1000, verbose=None):
+        if verbose is None:
+            verbose = self.verbose
+
         x_, y_ = self.get_training(end_day, data_count, verbose=self.verbose)
         # self.preprocessor.null = True
         x, y = self.preprocessor.pre(x_, y_)
@@ -136,7 +148,7 @@ class NnDriver:
             
             self.optimizer.step()
 
-            if self.verbose:
+            if verbose:
                 if (epoch + 1) % 10 == 0:
                     print(
                 f'Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.1e},  Diff: {1 - loss.item() / prev_loss:.1e}')
@@ -145,7 +157,7 @@ class NnDriver:
     
     def prediction(self, x, y):
         x, y = self.preprocessor.pre(x, y)
-        predicted = self.model(x).detach().numpy()#forward pass
+        predicted = self.model(x).detach().numpy() # forward pass
         predicted = self.preprocessor.inverse_x(predicted)
         return predicted
     
@@ -160,7 +172,7 @@ class NnDriver:
                 get_data(end_index=future_index, count=0)
             fact.append(data[0])
 
-            x, y, _ = self.context_seq.create_sequences(
+            x, y, indexes_x, indexes_y = self.context_seq.create_sequences(
                 end_index=current_index, 
                 seq_len=self.context_seq.seq_len, 
                 count=self.model.num_layers * self.model.input_size
@@ -184,25 +196,34 @@ class NnDriver:
 
     def __prediction(self, shift=50, count=50):
         warmup_len = self.model.num_layers * self.model.input_size
-        x, y, indexes = self.context_seq.create_sequences(
+        x, y, indexes_x, indexes_y  = self.context_seq.create_sequences(
             end_index=self.context_seq.last_trained_index + shift + count, 
             seq_len=self.context_seq.seq_len, 
             count=warmup_len + count
             )
-        predicted = self.prediction(x, y)
-        future_len = self.context_seq.future_len
-        x_act = np.array([_[-1] for _ in x][warmup_len + 2 * future_len:])
-        y_act = np.array(y[warmup_len:])
-        y_pred = np.array([_[0] for _ in predicted][warmup_len:])
-        return x_act, y_act, y_pred     
+        y_predicted = self.prediction(x, y)
+        x_act = [_[-1] for _ in x]
+        y_act = [_ for _ in y]
+        y_pred = np.array([_[0] for _ in y_predicted])
+        y_pred = y_pred \
+            + (y_act[-self.context_seq.future_len - 1] - y_pred[-self.context_seq.future_len - 1])
 
+        x_act = [[_[-1] for _ in indexes_x][warmup_len:], 
+                                            x_act[warmup_len:]]
+        y_act = [[_ for _ in indexes_y][warmup_len:],
+                                            y_act[warmup_len:]]
+        y_pred = [[_ for _ in indexes_y][warmup_len:], 
+                                            y_pred[warmup_len:]]
+        return x_act, y_act, y_pred
+         
     def show_action(self, shift=50, count=50):
         x_act, y_act, y_pred = self.__prediction(shift, count)
-
-        plt.plot(x_act, label='actual feature', color='red')
-        plt.plot(y_pred, label='prediction', color='green')
-        plt.plot(y_act, label='actual target', color='blue') 
-                   
+        plt.plot(*y_pred, label='prediction', color='green', 
+                 linewidth=7, alpha=0.5)     
+        plt.plot(*x_act, label='feature', color='red', 
+                 linewidth=5, alpha=0.5)
+        plt.plot(*y_act, label='actual target', color='blue', 
+                 linewidth=3, alpha=0.5)           
         plt.legend()
         plt.show()
 

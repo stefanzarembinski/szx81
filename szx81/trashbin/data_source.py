@@ -1,7 +1,4 @@
 
-import time
-import datetime
-import csv
 import matplotlib.pyplot as plt
 
 def roundLog(x, toString=False):

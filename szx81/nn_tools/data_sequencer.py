@@ -32,12 +32,13 @@ class ContextSequencer:
         self.first_trained_index = end_day * DAY
         self.trained_indexes = set()
         self.last_trained_index = None
-
+ 
     def create_sequences(self, end_index, seq_len, count, debug=False):
         """Lists sequences of ``data`` items, ``seq_len`` long, ``count`` 
         of them, ending - not including - ``end_index`` index of ``data``. Each next sequence is shifted by 1 from the previous.
         """
         data_len = count + self.future_len + self.seq_len
+
         if self.data_source is None or self.first_trained_index < 0 \
                 or (self.data_source.len() > 0) \
                     and self.first_trained_index + data_len > self.data_source.len():
@@ -48,21 +49,22 @@ class ContextSequencer:
                             end_index, count + seq_len + self.future_len, debug)
         list_x = []
         list_y = []
-        y_indexes = set()
+        x_indexes = []
+        y_indexes = []
         for i in range(count):
-            x = data[i: (i + seq_len)]
-            list_x.append(x)
-            y_indexes.add(indexes[i + seq_len + self.future_len - 1])
+            list_x.append(data[i: (i + seq_len)])
+            x_indexes.append(indexes[i: (i + seq_len)])
             list_y.append(data[i + seq_len + self.future_len - 1])
-        # import pdb; pdb.set_trace()
-        return np.array(list_x), np.array(list_y), y_indexes
+            y_indexes.append(indexes[i + seq_len + self.future_len - 1])
+        return np.array(list_x), np.array(list_y), x_indexes, y_indexes
     
     def get_sequences(self, count, debug=False):
-        x, y, indexes = self.create_sequences(
+        x, y, indexes_x, indexes_y = self.create_sequences(
                         self.first_trained_index, self.seq_len, count, debug)
-        retval = x, y, indexes
+        retval = x, y, indexes_x, indexes_y
         data_len = count + self.future_len + self.seq_len
         self.last_trained_index = self.first_trained_index + data_len
+
         if debug:
             title = ''
             title += f'end={self.first_trained_index} '
@@ -72,16 +74,15 @@ class ContextSequencer:
             print(f'x:\n{x}')
             print(f'y:\n{y}')
 
-        if debug:
             retval = x, y, self.data_source.get_data(
                                 self.first_trained_index, count + self.seq_len)
 
         return retval
     
     def get_training(self, count, verbose=True):
-        x, y, indexes = self.get_sequences(count)
+        x, y, indexes_x, indexes_y = self.get_sequences(count)
         
-        self.trained_indexes = self.trained_indexes | indexes
+        self.trained_indexes = self.trained_indexes | set(indexes_y)
         if verbose:
             print(f'begin index: {self.first_trained_index}, end index: {self.last_trained_index}, count:{count}')
         return x, y
