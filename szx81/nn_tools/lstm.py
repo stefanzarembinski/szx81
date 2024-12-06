@@ -19,33 +19,7 @@ from core import _
 import hist_data as hd
 import nn_tools.data_sequencer as ds
 import nn_tools.data_source as ns
-
-
-class Preprocessor:
-    def __init__(self, null=False):
-        self.ss = StandardScaler()
-        self.mm = StandardScaler() #MinMaxScaler()
-        self.null = null
-
-    def pre(self, x, y=None):
-        if not self.null: 
-            x = self.ss.fit_transform(x)
-        x = Variable(torch.Tensor(x))
-        x = torch.reshape(x, (x.shape[0], 1, x.shape[1]))
-
-        if y is None:
-            return x
-        
-        y = y.reshape(-1, 1)
-        if not self.null:
-            y = self.mm.fit_transform(y)
-        y = Variable(torch.Tensor(y))
-        return x, y
     
-    def inverse_x(self, predicted):
-        if self.null:
-            return predicted
-        return self.mm.inverse_transform(predicted)
 
 class Model(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
@@ -73,7 +47,7 @@ class Model(nn.Module):
 
 class NnDriver:
     def __init__(self,
-                 data_source_class,
+                 data_source,
                  model_class,
                  future_len=5,
                  context_len = 10,
@@ -88,9 +62,8 @@ class NnDriver:
         self.accuracy = accuracy
         self.learning_rate = learning_rate
 
-        self.preprocessor = Preprocessor()
         self.context_seq = ds.ContextSequencer(
-            data_source_class = data_source_class, 
+            data_source_class = data_source, 
             end_day=2, 
             seq_len=context_len, 
             future_len=future_len
@@ -126,9 +99,11 @@ class NnDriver:
         if verbose is None:
             verbose = self.verbose
 
-        x_, y_ = self.get_training(end_day, data_count, verbose=self.verbose)
-        # self.preprocessor.null = True
-        x, y = self.preprocessor.pre(x_, y_)
+        x, y = self.get_training(end_day, data_count, verbose=verbose)
+        x = Variable(torch.Tensor(x))
+        x = torch.reshape(x, (x.shape[0], 1, x.shape[1]))
+        y = y.reshape(-1, 1)
+        y = Variable(torch.Tensor(y))
         
         loss0 = None
         prev_loss = None
@@ -158,41 +133,8 @@ class NnDriver:
     def prediction(self, x, y):
         x, y = self.preprocessor.pre(x, y)
         predicted = self.model(x).detach().numpy() # forward pass
-        predicted = self.preprocessor.inverse_x(predicted)
+        predicted = self.context_seq.data_source.inverse_transform([predicted])
         return predicted
-    
-    def show_action1(self, shift=50, count=50):
-        end_index = self.context_seq.last_trained_index + shift
-        fact = []
-        pred = []
-        for i in range(count):
-            future_index = end_index + self.context_seq.future_len + i
-            current_index = end_index + i
-            data, indexes = self.context_seq.data_source.\
-                get_data(end_index=future_index, count=0)
-            fact.append(data[0])
-
-            x, y, indexes_x, indexes_y = self.context_seq.create_sequences(
-                end_index=current_index, 
-                seq_len=self.context_seq.seq_len, 
-                count=self.model.num_layers * self.model.input_size
-                )
-            pred.append(self.prediction(x, y))
-
-        # plt.plot(fact, label='fact', color='green')
-        # plt.plot(pred, label='prediction', color='blue')
-
-        plt.plot(fact, label='fact', color='green')
-        plt.plot(pred, label='prediction', color='blue')
-        # for i in range(len(fact)):
-        #     plt.scatter(i, fact[i], color='green')
-        #     plt.scatter(i + self.context_seq.future_len, pred[i], color='blue')
-        #     plt.plot(
-        #         [i, i + self.context_seq.future_len],
-        #         [fact[i], pred[i]], color='red', alpha=0.5)
-
-        plt.legend()
-        plt.show()
 
     def __prediction(self, shift=50, count=50):
         warmup_len = self.model.num_layers * self.model.input_size
