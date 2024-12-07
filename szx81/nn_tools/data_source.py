@@ -2,6 +2,7 @@ import random
 import math
 import numpy as np
 
+import core as co
 import hist_data as hd
 
 class SinusDataSource:

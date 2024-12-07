@@ -133,7 +133,8 @@ class NnDriver:
     def prediction(self, x, y):
         x, y = self.preprocessor.pre(x, y)
         predicted = self.model(x).detach().numpy() # forward pass
-        predicted = self.context_seq.data_source.inverse_transform([predicted])
+        predicted = self.context_seq.data_source.inverse_transform(
+            predicted, 0)
         return predicted
 
     def __prediction(self, shift=50, count=50):

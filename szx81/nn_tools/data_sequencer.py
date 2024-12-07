@@ -23,10 +23,11 @@ class ContextSequencer:
     #     return cls._instance 
 
     def __init__(self, 
-                data_source_class, 
+                data_source, 
                 seq_len=SEQ_LEN,  
-                future_len=FUTURE, end_day=0):
-        self.data_source = data_source_class()
+                future_len=FUTURE, 
+                end_day=0):
+        self.data_source = data_source
         self.seq_len = seq_len
         self.future_len = future_len
         self.first_trained_index = end_day * DAY
