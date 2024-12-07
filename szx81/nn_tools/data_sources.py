@@ -8,7 +8,7 @@ hd.set_hist_data(data_count=None)
 
 from nn_tools.data_source_super import DataSource
 
-class ForexDataSource(DataSource):
+class OpenVolumeDs(DataSource):
     def fit_data(self, **kwargs):
         self.step = kwargs['step']
         opens = []
@@ -52,18 +52,19 @@ class ForexDataSource(DataSource):
             open = 0
             volume = 0
             target = 0
-            index = i + self.step - 1
+            
             for k in range(self.step):
-                _open, _volume = helper(i + k)
-                open += _open
-                volume += _volume
-                _open, _volume = helper(i + k + self.future_count)
-                target += _open
-
-            indexes.append(index)
-            opens.append(open / self.step)
-            volumes.append(volume / self.step)
-            targets.append(target / self.step)
+                if k == self.step - 1:
+                    _open, _volume = helper(i + k)
+                    open += _open
+                    volume += _volume
+                    _open, _volume = helper(i + k + self.future_count)
+                    target += _open
+                    index = i + k                    
+                    indexes.append(index)
+                    opens.append(open / self.step)
+                    volumes.append(volume / self.step)
+                    targets.append(target / self.step)
 
         opens = np.array(opens).reshape(-1, 1)
         volumes = np.log(np.array(volumes).reshape(-1, 1) + 10.0)
@@ -80,12 +81,77 @@ class ForexDataSource(DataSource):
             self.targets, 
             self.indexes)
 
-def test_ds():
-    ds = ForexDataSource(
-        hd.DICT_DATA.values(), (MinMaxScaler(), MinMaxScaler()), step=3)
 
+class OpenDs(DataSource):
+    def fit_data(self, **kwargs):
+        self.step = kwargs['step']
+        opens = []
+        for i in range(0, len(self.data)):  
+            open = 0
+            if not i + self.step < len(self.data):
+                break
+            for k in range(self.step):
+                val = self.data[i + k]
+                open += (val[1][0][0] + val[1][1][0]) / 2           
+
+            opens.append(open / self.step) #.reshape(-1, 1)
+
+        opens = np.array(opens).reshape(-1, 1)
+
+        self.fit_transform([opens,])
+
+    def feature_names(self):
+        return ('opens',)
+    
+    def target_names(self):
+        return ('opens target',)
+        
+    def get_data__(self):
+        def helper(i):
+            val = self.data[i]
+            return (val[1][0][0] + val[1][1][0]) / 2
+
+        indexes = [] 
+        opens = []
+        targets = []
+        for i in range(self.begin, self.end_index, self.step):
+            index = 0
+            open = 0
+            target = 0
+            
+            for k in range(self.step):
+                if k == self.step - 1:
+                    _open = helper(i + k)
+                    open += _open
+                    _open = helper(i + k + self.future_count)
+                    target += _open
+                    index = i + k                    
+                    indexes.append(index)
+                    opens.append(open / self.step)
+                    targets.append(target / self.step)
+
+        opens = np.array(opens).reshape(-1, 1)
+        opens = self.transform([opens,])
+
+        targets = np.array(targets).reshape(-1, 1)
+        targets = self.transform(targets, index=0)
+
+        self.features = np.concatenate((opens,), axis=1)
+        self.targets = targets
+        self.indexes = np.array(indexes).reshape(-1, 1)
+        return (
+            self.features, 
+            self.targets, 
+            self.indexes)
+
+def test_ds():
+    # ds = OpenVolumeDs(
+    #     hd.DICT_DATA.values(), (StandardScaler(), StandardScaler()), step=10)
+    ds = OpenDs(
+        hd.DICT_DATA.values(), (MinMaxScaler(), MinMaxScaler()), step=10)
+    
     features, targets, indexes = ds.get_data(
-        end_index=2200, data_count=98, future_count=3)
+        end_index=5000, data_count=3000, future_count=3)
     ds.report()
     ds.plot()
 
@@ -145,13 +211,14 @@ class ContextSequencer:
 
 def test_cs():
     cs = ContextSequencer(
-    ForexDataSource(
+    OpenVolumeDs(
         hd.DICT_DATA.values(), 
         (StandardScaler(), StandardScaler()),
         step=3
         ))
 
-    features, targets, indexes = cs.create_sequences(end_index=1000, seq_len=3, data_count=3000)
+    features, targets, indexes = cs.create_sequences(
+        end_index=30000, seq_len=10, data_count=25000)
     print(features[:10])
 
 def main():

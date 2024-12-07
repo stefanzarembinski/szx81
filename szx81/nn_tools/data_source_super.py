@@ -137,9 +137,12 @@ indexes:
     def plot(self):
         targets = self.targets.transpose()
         for i in range(len(targets)):
-            plt.plot(self.indexes, targets[i], label=self.target_names()[i])
+            plt.plot(self.indexes, targets[i], marker='o', 
+                     label=self.target_names()[i])
         features = self.features.transpose()
         for i in range(len(features)):
-            plt.plot(self.indexes, features[i], label=self.feature_names()[i])
+            plt.plot(self.indexes, features[i], marker='x', 
+                     label=self.feature_names()[i])
+        # plt.ylim(0, 1)
         plt.legend()
         plt.show()
