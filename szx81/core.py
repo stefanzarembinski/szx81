@@ -5,6 +5,10 @@ import scipy.signal as signal
 from IPython.display import HTML, display, Markdown, Latex
 import textwrap
 
+import logging
+logging.basicConfig(format="{levelname}:{funcName}: {message}", style="{")
+# logging.basicConfig(format="{levelname}:{name}:{message}", style="{")
+
 import config_all
 
 def wrap_text(text, width=80):
