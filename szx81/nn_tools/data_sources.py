@@ -7,13 +7,12 @@ import matplotlib.pyplot as plt
 
 # https://realpython.com/python-logging/
 # https://stackoverflow.com/questions/10973362/python-logging-function-name-file-name-line-number-using-a-single-file
-import logging
 # logging.basicConfig(format="{levelname}:{funcName}: {message}", style="{")
+
+import logging
 log = logging.getLogger(__file__)
 log.setLevel(level=logging.DEBUG)
 
-# log = logging.getLogger(__file__)
-# log.setLevel(level=logging.DEBUG)
 
 import core as co
 import hist_data as hd
@@ -160,16 +159,15 @@ feature_0(min, max): ({np.min(feature_0):.1e}, {np.max(feature_0):.1e})''')
     def target_names(self):
         return ('open',)
     
-    def raw_data_begin(self):
-        self.feature_data_count = self.data_count + self.step
-        return self.end_index \
-            - (self.feature_data_count + (self.future_count + self.step))
-        
+    def set_data_begin(self):
+        self.begin_index = self.end_index \
+            - (self.data_count + (self.future_count + self.step))
+
     def get_data__(self):
         indexes_tf = []
         target_0 = []
         feature_0 = []
-        
+
         def helper(j):
             val = self.data[j]
             return (val[1][0][0] + val[1][1][0]) / 2
@@ -220,43 +218,51 @@ target_0(min. max): ({np.min(target_0):.1e}, {np.max(target_0):.1e})
             data_range=(self.begin_index, self.end_index)
         )
         return dt
-    
-    def plot_ds(self, plt, data_count=10, show=False):
-        """
-        Parameters:
-        -----------
-        predictions : Array-like object containing numpy arrays.
-        """
-        data_count = min(len(self.indexes_tf), data_count)
-        indexes_tf = self.indexes_tf[-data_count:]
-        targets = self.targets.transpose()
-        for i in range(len(targets)):
-            plt.plot(
-                indexes_tf + self.feature_count, 
-                targets[i][-data_count:], linewidth=7, alpha=0.5, # marker='o', 
-                     label=self.target_names()[i])
-        features = self.features.transpose()
-        for i in range(len(features)):
-            plt.plot(
-                indexes_tf, 
-                features[i][-data_count:], # marker='x', 
-                     label=self.feature_names()[i])
-        plt.vlines(
-            indexes_tf[-1], np.min(targets[0]), np.max(targets[0]), 
-            linestyle='dashed',
-            label=f'time now, future count is {self.feature_count}')
-        
-        if show:
-            plt.legend()
-            plt.show()
-        
-        return self.indexes_tf[-data_count:][0]
 
 class SinusDs(DataSource):
 
+    class Sinus:
+        def __init__(self, noise=0.03, stop=10000, start=0, step=1):
+            self.noise = noise
+            self.start = start
+            self.step = step
+            self.stop = stop 
+
+        def __getitem__(self, i):
+            # import pdb; pdb.set_trace()
+            if isinstance(i, slice):
+                if i.start is not None:
+                    self.start = i.start
+                if i.step is not None:
+                    raise ValueError(
+                        f'slice step is {i.step}; it can be 1, only ')
+                if i.stop is not None:
+                    self.stop = i.stop
+
+                return SinusDs.Sinus(
+                    self.noise, self.stop, self.start, self.step)
+            if i < 0:
+                i = self.stop + i
+            
+            k = (i + self.start)
+            if k < self.start or k >= self.stop:
+                raise IndexError(f'index is {k} while it has to be within limits [{self.start}, {self.stop}[')
+            return .5 * math.sin(k * .03 * self.step) \
+                    + random.uniform(-self.noise, self.noise) + .5
+        
+        def __len__(self):
+            return self.stop - self.start
+        
+        def __str__(self):
+            return f'''
+start index: {self.start}
+step: {self.step}
+stop index: {self.stop}
+length: {len(self)}
+'''
+
     def fit_data__(self):
         self.step = self.kwargs['step']
-        self.noise_strength = self.kwargs['noise']
         self.scaler_opens = None
         self.scaler_volumes = None
 
@@ -266,27 +272,31 @@ class SinusDs(DataSource):
     def target_names(self):
         return ('sinus targets',)
     
-    def raw_data_begin(self):
-        self.feature_data_count = self.data_count + self.step
-        return self.end_index \
-            - (self.feature_data_count + (self.future_count + self.step))
-    
     def get_data__(self):
+    
         indexes_tf = []
         target_0 = []
         feature_0 = []
-        
-        for i in range(self.begin_index, self.end_index):
+
+        end = self.end_index - 1
+        future_count = 0 if self.is_testing else self.future_count
+        if self.is_testing:
+            future_count = 0
+        else:
+            future_count = self.future_count
+
+        for i in range(self.data_count):
             _feature_0 = 0
             _target_0 = 0
             for k in range(self.step):
-                _feature_0 += self.data(i + k, self.noise_strength)
-                _target_0 += self.data(
-                    i + k + self.future_count, self.noise_strength)    
+                _feature_0 += self.data[end - (i + k + future_count)]
+                _target_0 += self.data[end - (i + k)]
+                if k == 0: indexes_tf.insert(0, end - (i + k))
                 if k == self.step - 1:
-                    indexes_tf.append(i + k)
-                    feature_0.append(_feature_0 / self.step)
-                    target_0.append(_target_0 / self.step)
+                    feature_0.insert(0, (_feature_0 / self.step))
+                    target_0.insert(0, (_target_0 / self.step)) 
+
+        self.begin = indexes_tf[0] - self.step
 
         feature_0 = np.array(feature_0).reshape(-1, 1)
         target_0 = np.array(target_0).reshape(-1, 1)
@@ -312,57 +322,13 @@ class SinusDs(DataSource):
         )
         return dt
     
-    def plot_ds(self, plt, data_count=10, show=False):
-        """
-        Parameters:
-        -----------
-        predictions : Array-like object containing numpy arrays.
-        """
-        data_count = min(len(self.indexes_tf), data_count)
-        indexes_tf = np.array(self.indexes_tf[-data_count:])
-        targets = self.targets.transpose()
-        for i in range(len(targets)):
-            plt.plot(
-                indexes_tf + self.feature_count, 
-                targets[i][-data_count:], linewidth=7, alpha=0.5, # marker='o', 
-                     label=self.target_names()[i])
-        features = self.features.transpose()
-        for i in range(len(features)):
-            plt.plot(
-                indexes_tf, 
-                features[i][-data_count:], # marker='x', 
-                     label=self.feature_names()[i])
-        plt.vlines(
-            indexes_tf[-1], np.min(targets[0]), np.max(targets[0]), 
-            linestyle='dashed',
-            label=f'time now')
-        log.debug(f'''
-``future`` is {self.feature_count} long; 
-``future_count`` is {self.feature_count}.
-
-``time now`` (the last features index) is {indexes_tf[-1]}; 
-``end_index`` is {self.end_index}.
-
-''step`` is {self.step}
-''')
-        
-        if show:
-            plt.legend()
-            plt.show()
-        
-        return self.indexes_tf[-data_count:][0]
-
 def test_ds():
     # ds = OpenVolumeDs(
     #     hd.DICT_DATA.values(), (StandardScaler(), StandardScaler()), step=10)
     # ds = OpenDs(
-    #     hd.DICT_DATA.values(), (MinMaxScaler(), MinMaxScaler()), step=3)
-    
-    sinus = lambda j, noise: .5 * math.sin(j * .03) + random.uniform(
-        -noise, noise) + .5
-    ds = SinusDs(
-        sinus, (None, None), step=5, noise=0.01)    
-    
+    #     hd.DICT_DATA.values(), (MinMaxScaler(), MinMaxScaler()), step=3) 
+
+    ds = SinusDs(SinusDs.Sinus(noise=0.03, len=5000), (None, None), step=5)    
     ds.get_data(end_index=1000, data_count=30, future_count=3)
     ds.report()
     # ds.plot_ds(plt, data_count=10, show=True)

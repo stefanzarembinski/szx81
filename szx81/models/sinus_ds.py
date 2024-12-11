@@ -1,4 +1,3 @@
-import random
 import math
 import numpy as np
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
@@ -98,9 +97,7 @@ class NnDriver:
         y = Variable(torch.Tensor(y))
         return x, y
 
-    def train(self, data_count=1000, end_index=None, verbose=None):
-        if verbose is None:
-            verbose = self.verbose
+    def train(self, data_count=1000, end_index=None, verbose=False):
 
         x, y = self.get_training(data_count, end_index, verbose=verbose)
         x, y = self.preprocessing(x, y)
@@ -135,11 +132,13 @@ class NnDriver:
     #     predicted = self.model(x).detach().numpy() # forward pass
     #     return predicted
          
-    def show_action(self, shift=50, data_count=150):
+    def show_action(self, end_index, data_count=150, verbose=False):
         dt = self.context_seq.get_testing(
+            end_index=end_index,
+            data_count=data_count,
             context_count=self.model.num_layers * self.model.input_size,
-            dist_count=shift, 
-            data_count=data_count) 
+            verbose=verbose)
+        
         x = dt.features
         y = dt.targets
         
@@ -151,24 +150,32 @@ class NnDriver:
             data_count=20)
 
 def test():
-    sinus = lambda j, noise: .5 * math.sin(j * .03) + random.uniform(
-        -noise, noise) + .5
-    
-    dr = NnDriver(
-        data_source=SinusDs(
-            sinus, 
+    training_end_index = 4000
+    data = SinusDs.Sinus(noise=0.03, stop=training_end_index)
+
+    ds = SinusDs(
+            data, 
             (None, None),
             step=3,
             noise=0.03
-            ),
+            )
+
+    dr = NnDriver(
+        data_source=ds,
         model_class=Model,
-        future_count=1,
+        future_count=15,
         verbose=True
         )
-    dr.train(data_count=500, end_index=6000)
-    dr.show_action(shift=250)
+    
+    dr.train(data_count=500, end_index=len(data) - dr.future_count)
 
-def main():
+    testing_end_index = training_end_index + 50
+
+    dr.context_seq.data_source.data = SinusDs.Sinus(
+        noise=0.03, stop=testing_end_index)
+    dr.show_action(end_index=testing_end_index)
+
+def main():  
     test()
     
 if __name__ == "__main__":

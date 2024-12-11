@@ -3,6 +3,10 @@ np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import matplotlib.pyplot as plt
 
+import logging
+log = logging.getLogger(__file__)
+log.setLevel(level=logging.DEBUG)
+
 import core as co
 import hist_data as hd
 if hd.DATA is None:
@@ -49,10 +53,9 @@ class DataSource:
         scalers: Array of NN model inputs scalers.
         """
         self.data = data
-        try:
+        if isinstance(self.data, list):
             self.data = list(data)
-        except:
-            pass
+
         self.scalers = scalers
         self.feature_count = 2
         self.future_count = 10   
@@ -78,13 +81,6 @@ class DataSource:
     def feature_names(self):
         raise NotImplementedError()
         return [str(i) for i in range(20)]
-    
-    def raw_data_begin(self):
-        """Calculates ``beginning index of historical data needed and returns 
-        it.
-        """
-        raise NotImplementedError()
-        return self.begin_index
     
     def get_data__(self):
         raise NotImplementedError()
@@ -158,7 +154,8 @@ class DataSource:
                 np.array([_[2] for _ in self.data]).reshape(-1, 1))
             self.volumes = self.scaler_volumes.fit()
 
-    def get_data(self, end_index, data_count, future_count):
+    def get_data(self, end_index, data_count, future_count, 
+                 is_testing=True, verbose=False):
         """
         Returns the given count of data object needed for composing feature and 
         target inputs of an NN model.
@@ -176,20 +173,12 @@ class DataSource:
         (features, targets, indexes_tf) : Tuple of numpy arrays containing
             data ordered.
         """
-        self.end_index = end_index
+        self.end_index = end_index # The only end_index setting.
         self.data_count = data_count
         self.future_count = future_count
-        self.begin_index= self.raw_data_begin()
-
-        if hasattr(self.data, '__len__'):
-            if self.begin_index + 1 < 0 or self.end_index + 1 > len(self.data):
-                raise Exception(f''' 
-ERROR
-The wanted data range is 
-({self.begin_index+ 1}, {self.end_index + 1})
-while the maximal is
-({0}, {len(self.data)})
-''')      
+        self.is_testing = is_testing
+        self.verbose = verbose
+     
         return self.get_data__()
         
     def report(self, verbose=False):
@@ -206,6 +195,50 @@ targets:
 feature indexes:
 {self.indexes_tf[:3]}
 ''')
+        
+    def plot_ds(self, plt, data_count=10, show=False):
+        """
+        Parameters:
+        -----------
+        predictions : Array-like object containing numpy arrays.
+        """
+        data_count = min(len(self.indexes_tf), data_count)
+        indexes_tf = np.array(self.indexes_tf[-data_count:])
+        targets = self.targets.transpose()
+        future_count = 0 if self.is_testing else self.feature_count
+        for i in range(len(targets)):
+            plt.plot(
+                indexes_tf + future_count, 
+                targets[i][-data_count:], linewidth=7, alpha=0.5, # marker='o', 
+                     label=self.target_names()[i])
+        features = self.features.transpose()
+        for i in range(len(features)):
+            plt.plot(
+                indexes_tf, 
+                features[i][-data_count:], # marker='x', 
+                     label=self.feature_names()[i])
+        plt.vlines(
+            indexes_tf[-1], np.min(targets[0]), np.max(targets[0]), 
+            linestyle='dashed',
+            label=f'time now ({indexes_tf[-1]})')
+        plt.vlines(
+            indexes_tf[-1] + future_count, 
+                np.min(targets[0]), np.max(targets[0]), 
+            linestyle='dashed',
+            label=f'future ({future_count})')        
+               
+        log.debug(f'''
+``future_count`` is {future_count}.
+time now (the last features index indexes_tf[-1]) is {indexes_tf[-1]}; 
+``end_index`` argument is {self.end_index}.
+''')
+        
+        if show:
+            plt.legend()
+            plt.show()
+        
+        return self.indexes_tf[-data_count:][0]
+
 
     def plot(self, data_count=10, future_margin=10):
         first_index = self.plot_ds(plt, data_count)
@@ -240,7 +273,7 @@ feature indexes:
         # first_index = indexes_tf[0]
         # index = np.where(dt.indexes > first_index)[0][0] - 1
         index = 0
-
+        future_count = 0 if self.is_testing else self.feature_count
         if dt.opens is not None:
             plt.plot(dt.get_indexes()[index:], dt.opens[index:], 
                      label='open orig.')
@@ -253,7 +286,7 @@ feature indexes:
         targets = dt.targets.transpose()
         for i in range(len(targets)):
             plt.plot(
-                dt.indexes_tf + self.future_count, 
+                dt.indexes_tf + future_count, 
                 targets[i], linewidth=7, alpha=0.5, # marker='o', 
                      label=self.target_names()[i])
         if show_features:

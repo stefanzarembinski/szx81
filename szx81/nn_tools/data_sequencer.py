@@ -3,7 +3,6 @@ np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
 np.random.seed(0)
 
 import matplotlib.pyplot as plt
-import nn_tools.data_source as ds
 import logging
 # logging.basicConfig(format="{levelname}:{funcName}: {message}", style="{")
 log = logging.getLogger(__file__)
@@ -30,29 +29,28 @@ class ContextSequencer:
         self.data_source = data_source
         self.seq_len = seq_len
         self.future_count = future_count
-        self.end_index = end_index
-        self.trained_indexes = set()
         self.data_source.future_count = future_count
     
-    def create_sequences(self, end_index, data_count):
+    def create_sequences(self, end_index, data_count, 
+                         is_testing=True, verbose=False):
             """Lists sequences of ``data`` items, ``seq_len`` long, ``data_count`` 
             of them, ending - not including - ``end_index`` index of ``data``. Each next sequence is shifted by 1 from the previous.
-            """        
-            dt = self.data_source.get_data(
-                                            end_index, 
+            """
+            dt = self.data_source.get_data(end_index, 
                                             data_count,
-                                            self.future_count)
+                                            self.future_count,
+                                            is_testing,
+                                            verbose=verbose)
             features = []
             targets = []
             indexes_tf = []
-            for i in range(data_count - self.future_count):
+            for i in range(len(dt.indexes_tf) - self.seq_len):
                 features.append(dt.features[i: (i + self.seq_len)].flatten())
-                indexes_tf.append(
-                    dt.indexes_tf[i + self.seq_len])
-                targets.append(
-                    dt.targets[i + self.seq_len + self.future_count - 1])
+                indexes_tf.append(dt.indexes_tf[i + self.seq_len])
+                targets.append(dt.targets[i + self.seq_len])
 
-            log.debug(f'''
+            if verbose:
+                log.debug(f'''
     len(features): {len(features)}
     len(features[i]): {len(features[0])}
     features[0]: {features[0]}
@@ -75,16 +73,13 @@ class ContextSequencer:
             dt.indexes_tf = np.array(indexes_tf)
             return dt
     
-    def get_training(self, data_count, end_index=None, verbose=True):
-        if end_index is None:
-            end_index = self.end_index
-        
+    def get_training(self, data_count, end_index, verbose=False):      
         dt = self.create_sequences(
                                 end_index=end_index,
-                                data_count=data_count
+                                data_count=data_count,
+                                is_testing=False
                                 )
         
-        self.trained_indexes = self.trained_indexes | set(dt.indexes_tf)
         if verbose:
             print(f'''
 TRAINING DATA
@@ -96,23 +91,15 @@ sequence length: {self.seq_len}
         
         return dt
     
-    def get_testing(self, context_count, dist_count, data_count):
+    def get_testing(self, end_index, data_count, context_count, verbose=False):
         """Returns test data ``count`` long, beginning ``dist_count``after  training end. The data have prepended ``context_count`` long 
         'warming-up' part.
         """
-        
-        begin_index = max(self.trained_indexes) + dist_count
-        index_count = context_count * self.seq_len + data_count
-        end_index = begin_index + index_count
-
         dt = self.create_sequences(
                                 end_index=end_index,
-                                data_count=context_count + data_count
+                                data_count=context_count + data_count,
+                                verbose=verbose
                                 )
-        
-        if len(self.trained_indexes & set(dt.indexes_tf)) > 0:
-            raise Exception('Testing data include trained parts!')
-        
         return dt 
     
     def plot(self):
@@ -138,25 +125,6 @@ sequence length: {self.seq_len}
         plt.legend()
         plt.show()
 
-def test_debug():
-    cs = ContextSequencer(
-        ds.ForexDataSource, end_day=1, seq_len=10, future_len=2)
-    cs.plot()
-
-def test():
-    end_day = 2
-    context_len = 10
-    future_len = 5
-
-    cs = ContextSequencer(
-        ds.ForexDataSource, end_day=end_day, seq_len=context_len, 
-        future_len=future_len)
-    x, y = cs.get_sequences(count=1000)
-
-    print(f'x:\n{x[-1]}')
-    print(f'y:\n{y[-1]}')
-    print(f'end_index: {cs.end_index}')
-
 def test_cs():
     import random
     import math
@@ -177,11 +145,9 @@ def test_cs():
     #     end_index=500
     #     )
     
-    sinus = lambda j, noise: .5 * math.sin(j * .03) + random.uniform(
-        -noise, noise) + .5
     cs = ContextSequencer(
         data_source=SinusDs(
-            sinus, 
+            SinusDs.Sinus(noise=0.03, len=50000), 
             (None, None),
             step=3,
             noise=0.03
@@ -191,8 +157,7 @@ def test_cs():
         end_index=500
         )
 
-    dt = cs.create_sequences(
-        end_index=300, data_count=1500)
+    dt = cs.create_sequences(end_index=2300, data_count=1500)
     print(f'''
 features: 
 {dt.features}
