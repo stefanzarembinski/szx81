@@ -50,7 +50,7 @@ class NnDriver:
                  data_source,
                  model_class,
                  future_len=5,
-                 context_len = 10,
+                 input_size = 10,
                  hidden_size=100,
                  num_layers=3,
                  num_epochs=1000,
@@ -65,11 +65,11 @@ class NnDriver:
         self.context_seq = ds.ContextSequencer(
             data_source_class = data_source, 
             end_day=2, 
-            seq_len=context_len, 
+            seq_len=input_size, 
             future_len=future_len
         ) 
         self.model = model_class(
-            input_size=context_len, 
+            input_size=input_size, 
             hidden_size=hidden_size, 
             num_layers=num_layers, 
             output_size=1

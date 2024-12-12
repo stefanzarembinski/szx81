@@ -48,12 +48,13 @@ class OpenVolumeDs(DataSource):
         self.fit_transform([feature_0, feature_1])
 
     def feature_names(self):
-        return ('feature_0', 'feature_1')
+        return ('open', 'volume')
     
     def target_names(self):
-        return ('target_0',)
+        return ('target open',)
         
     def get_data__(self):
+
         def helper(i):
             val = self.data[i]
             return (val[1][0][0] + val[1][1][0]) / 2, val[2]
@@ -61,60 +62,52 @@ class OpenVolumeDs(DataSource):
         indexes_tf = [] 
         feature_0 = []
         feature_1 = []
-        targets = []
-        # for i in range(len(self.indexes)):
-        #     index = 0
-        #     open = 0
-        #     volume = 0
-        #     target = 0
+        target_0 = []
 
-        #     for k in range(self.step):
-        #         if k == self.step - 1:
-        #             _open, _volume = helper(i + k)
-        #             open += _open
-        #             volume += _volume
-        #             _open, _volume = helper(i + k + self.future_count)
-        #             target += _open
-        #             index = i + k                    
-        #             indexes_tf.append(index)
-        #             feature_0.append(open / self.step)
-        #             feature_1.append(volume / self.step)
-        #             targets.append(target / self.step)
+        end = self.end_index - 1
+        future_count = 0 if self.is_testing else self.future_count
+        if self.is_testing:
+            future_count = 0
+        else:
+            future_count = self.future_count
 
-
-        for i in range(self.begin_index, self.end_index, self.step):
-            index = 0
-            open = 0
-            volume = 0
-            target = 0
-            
+        for i in range(self.data_count):
+            _feature_0 = 0
+            _feature_1 = 0
+            _target_0 = 0
             for k in range(self.step):
+                _open, _volume = helper(end - (i + k + future_count))
+                _feature_0 += _open
+                _feature_1 += _volume
+                _open, _volume = helper(end - (i + k))
+                _target_0 += _open
+
+                if k == 0: indexes_tf.insert(0, end - (i + k))
                 if k == self.step - 1:
-                    _open, _volume = helper(i + k)
-                    open += _open
-                    volume += _volume
-                    _open, _volume = helper(i + k + self.future_count)
-                    target += _open
-                    index = i + k                    
-                    indexes_tf.append(index)
-                    feature_0.append(open / self.step)
-                    feature_1.append(volume / self.step)
-                    targets.append(target / self.step)
+                    feature_0.insert(0, (_feature_0 / self.step))
+                    feature_1.insert(0, (_feature_1 / self.step))
+                    target_0.insert(0, (_target_0 / self.step)) 
+
+        self.begin_index = indexes_tf[0] - self.step
 
         feature_0 = np.array(feature_0)
         feature_1 = self.log_volume(np.array(feature_1))
         feature_0, feature_1 = self.transform([feature_0, feature_1])
 
-        targets = np.array(targets)
-        targets = self.transform(targets, index=0)
+        target_0 = np.array(target_0)
+        target_0 = self.transform(target_0, index=0)
 
         self.features = np.concatenate((feature_0, feature_1), axis=1)
-        self.targets = targets
+        self.targets = np.concatenate((target_0,), axis=1)
         self.indexes_tf = np.array(indexes_tf)
-        return (
-            self.features, 
-            self.targets, 
-            self.indexes_tf)
+
+        return DataSource.DataTransfer(
+            data=self.data.copy(),
+            features=self.features,
+            targets=self.targets,
+            indexes_tf=self.indexes_tf,
+            data_range=(self.begin_index, self.end_index)
+        )
 
 class OpenDs(DataSource):
 
@@ -123,9 +116,8 @@ class OpenDs(DataSource):
         self.scaler_opens = self.scalers[0]
         self.scaler_volumes = None
         feature_0 = []
+
         for i in range(0, len(self.data)):
-            val = self.data[i]
-            feature_0.append((val[1][0][0] + val[1][1][0]) / 2)
             open = 0
             if not i + self.step < len(self.data): 
                 break
@@ -136,8 +128,9 @@ class OpenDs(DataSource):
             feature_0.append(open / self.step)
 
         feature_0 = np.array(feature_0)
-        feature_0 = np.array(feature_0)
-        log.debug(f'''
+        
+        if self.verbose:
+            log.debug(f'''
 before transformation
 len(self.data): {len(self.data)}
 len(feature_0): {len(feature_0)}
@@ -145,9 +138,9 @@ feature_0(min. max) = ({np.min(feature_0):.1e}, {np.max(feature_0):.1e})
 ''')
 
         feature_0 = self.fit_transform(feature_0, 0)
-        feature_0 = self.transform(feature_0, 0)
 
-        log.debug(f'''
+        if self.verbose:
+            log.debug(f'''
 after transformation
 len(feature_0): {len(feature_0)}                  
 feature_0(min, max): ({np.min(feature_0):.1e}, {np.max(feature_0):.1e})''')
@@ -157,31 +150,40 @@ feature_0(min, max): ({np.min(feature_0):.1e}, {np.max(feature_0):.1e})''')
         return ('open',)
     
     def target_names(self):
-        return ('open',)
-    
-    def set_data_begin(self):
-        self.begin_index = self.end_index \
-            - (self.data_count + (self.future_count + self.step))
+        return ('target open',)
 
     def get_data__(self):
-        indexes_tf = []
-        target_0 = []
-        feature_0 = []
 
         def helper(j):
             val = self.data[j]
             return (val[1][0][0] + val[1][1][0]) / 2
         
-        for i in range(self.begin_index, self.end_index):
+        indexes_tf = []
+        target_0 = []
+        feature_0 = []  
+
+        end = self.end_index - 1
+        future_count = 0 if self.is_testing else self.future_count
+        if self.is_testing:
+            future_count = 0
+        else:
+            future_count = self.future_count
+
+        for i in range(self.data_count):
             _feature_0 = 0
             _target_0 = 0
             for k in range(self.step):
-                _feature_0 += helper(i + k)
-                _target_0 += helper(i + k + self.future_count)    
+                _open = helper(end - (i + k + future_count))
+                _feature_0 += _open
+                _open = helper(end - (i + k))
+                _target_0 += _open
+
+                if k == 0: indexes_tf.insert(0, end - (i + k))
                 if k == self.step - 1:
-                    indexes_tf.append(i + k)
-                    feature_0.append(_feature_0 / self.step)
-                    target_0.append(_target_0 / self.step)
+                    feature_0.insert(0, (_feature_0 / self.step))
+                    target_0.insert(0, (_target_0 / self.step)) 
+
+        self.begin_index = indexes_tf[0] - self.step
 
         indexes_tf = np.array(indexes_tf)
         feature_0 = np.array(feature_0)
@@ -190,7 +192,8 @@ feature_0(min, max): ({np.min(feature_0):.1e}, {np.max(feature_0):.1e})''')
         target_0 = np.array(target_0)
         target_0 = self.transform(target_0, 0)
 
-        log.debug(f'''
+        if self.verbose:
+            log.debug(f'''
 len(feature indexes): {len(indexes_tf)}
 feature indexes(min. max): ({np.min(indexes_tf)}, {np.max(indexes_tf)})
 len(feature_0): {len(feature_0)}
@@ -202,27 +205,18 @@ target_0(min. max): ({np.min(target_0):.1e}, {np.max(target_0):.1e})
         self.targets = np.concatenate((target_0,), axis=1)
         self.indexes_tf = indexes_tf
 
-        opens = None
-        if self.opens is not None:
-            opens = self.opens[self.begin_index: self.end_index]
-        volumes = None
-        if self.volumes is not None:
-            volumes = self.volumes[self.begin_index: self.end_index]
-        dt = DataSource.DataTransfer(
+        return DataSource.DataTransfer(
             data=self.data.copy(),
             features=self.features,
             targets=self.targets,
             indexes_tf=self.indexes_tf,
-            opens=opens,
-            volumes=volumes,
             data_range=(self.begin_index, self.end_index)
         )
-        return dt
 
 class SinusDs(DataSource):
 
     class Sinus:
-        def __init__(self, noise=0.03, stop=10000, start=0, step=1):
+        def __init__(self, noise=0.03, stop=None, start=0, step=1):
             self.noise = noise
             self.start = start
             self.step = step
@@ -242,15 +236,21 @@ class SinusDs(DataSource):
                 return SinusDs.Sinus(
                     self.noise, self.stop, self.start, self.step)
             if i < 0:
-                i = self.stop + i
+                if self.stop is not None:  
+                    i = self.stop + i
             
             k = (i + self.start)
-            if k < self.start or k >= self.stop:
+            if self.stop is None and k < self.start:
+                raise IndexError(f'index is {k} while it has to be within limits [{self.start}, {np.inf}[') 
+            elif k < self.start or k >= self.stop:
                 raise IndexError(f'index is {k} while it has to be within limits [{self.start}, {self.stop}[')
+            
             return .5 * math.sin(k * .03 * self.step) \
                     + random.uniform(-self.noise, self.noise) + .5
         
         def __len__(self):
+            if self.stop is None:
+                return np.inf
             return self.stop - self.start
         
         def __str__(self):
@@ -296,7 +296,7 @@ length: {len(self)}
                     feature_0.insert(0, (_feature_0 / self.step))
                     target_0.insert(0, (_target_0 / self.step)) 
 
-        self.begin = indexes_tf[0] - self.step
+        self.begin_index = indexes_tf[0] - self.step
 
         feature_0 = np.array(feature_0).reshape(-1, 1)
         target_0 = np.array(target_0).reshape(-1, 1)
@@ -305,8 +305,6 @@ length: {len(self)}
         self.targets = np.concatenate((target_0,), axis=1)
         self.indexes_tf = indexes_tf
 
-        opens = None
-        volumes = None
         data=self.data
         if hasattr(self.data, 'copy'):
             data=data.copy()
@@ -316,8 +314,6 @@ length: {len(self)}
             features=self.features,
             targets=self.targets,
             indexes_tf=self.indexes_tf,
-            opens=opens,
-            volumes=volumes,
             data_range=(self.begin_index, self.end_index)
         )
         return dt

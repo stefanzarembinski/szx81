@@ -28,22 +28,15 @@ class DataSource:
                     features,
                     targets,
                     indexes_tf,
-                    opens,
-                    volumes,
                     data_range):
             self.data = data
             self.features = features
             self.targets = targets
             self.indexes_tf = indexes_tf
-            self.opens = opens
-            self.volumes = volumes
             self.data_range = data_range
 
-        def get_indexes(self):
-            return np.array(
-            [i for i in range(self.data_range[0], self.data_range[1])])
-
-    def __init__(self, data, scalers, **kwargs):
+    def __init__(self, data, scalers,
+                        verbose=False, **kwargs):
         """ The ``get_data`` method returns the given count of data object 
         needed for composing feature and target inputs of an NN model.
 
@@ -71,7 +64,7 @@ class DataSource:
         self.opens = None
         self.volumes = None
         self.indexes = None
-
+        self.verbose = verbose
         self.fit_data()           
     
 
@@ -139,6 +132,7 @@ class DataSource:
     def len(self):
         return len(self.indexes_tf)
     
+
     def fit_data(self):
       
         self.fit_data__()
@@ -148,11 +142,63 @@ class DataSource:
                 [(_[1][0][0] + _[1][1][0]) / 2 for _ in self.data]).reshape(
                     -1, 1)
             self.opens = self.scaler_opens.fit_transform(self.opens)
-            
+        
         if (self.volumes is None) and (self.scaler_volumes is not None):
-            self.log_volume = self.log_volume(
+            self.volumes = self.log_volume(
                 np.array([_[2] for _ in self.data]).reshape(-1, 1))
-            self.volumes = self.scaler_volumes.fit()
+            self.volumes = self.scaler_volumes.fit_transform(self.volumes)
+
+        if self.verbose:
+            log.debug(f'''
+self.opens(min. max): ({np.min(
+    self.opens
+    ) if self.opens is not None else np.nan:.2f}, {np.max(
+        self.opens) if self.opens is not None else np.nan:.3f})
+self.volumes(min. max): ({np.min(
+    self.volumes
+    ) if self.volumes is not None else np.nan:.2f}, {np.max(
+        self.volumes) if self.volumes is not None else np.nan:.3f})
+''')
+
+    def future_data(self, data, begin_index, length):
+        indexes = None
+        opens = None
+        volumes = None
+
+        if self.scaler_opens is not None:
+            opens = np.array(
+                [(_[1][0][0] + _[1][1][0]) / 2 \
+                for _ in data[begin_index: begin_index + length]]).reshape(
+                    -1, 1)
+            opens = self.scaler_opens.transform(opens)
+            indexes = list(range(begin_index, begin_index + length))
+        
+        if self.scaler_volumes is not None:
+            volumes = np.array(
+                [_[2] \
+                for _ in data[begin_index: begin_index + length]]).reshape(
+                    -1, 1)
+            volumes = self.log_volume(volumes)
+            volumes = self.scaler_volumes.transform(volumes)
+            indexes = list(range(begin_index, begin_index + length))
+        
+        return opens, volumes, indexes
+
+    def opens_volumes(self, data_range):
+        indexes = None
+        opens = None
+        volumes = None
+        if self.opens is not None:
+            low = data_range[0]
+            high = min(len(self.opens), data_range[1]) # ???? ulepszyć?
+            opens = self.opens[low: high]
+            indexes = np.array(list(range(low, high)))
+        if self.volumes is not None:
+            low = data_range[0]
+            high = min(len(self.volumes), data_range[1]) # ???? ulepszyć?
+            volumes = self.volumes[data_range[0]: data_range[1]]
+            indexes = np.array(list(range(low, high)))
+        return opens, volumes, indexes
 
     def get_data(self, end_index, data_count, future_count, 
                  is_testing=True, verbose=False):
@@ -239,7 +285,6 @@ time now (the last features index indexes_tf[-1]) is {indexes_tf[-1]};
         
         return self.indexes_tf[-data_count:][0]
 
-
     def plot(self, data_count=10, future_margin=10):
         first_index = self.plot_ds(plt, data_count)
         # import pdb; pdb.set_trace()
@@ -261,55 +306,61 @@ time now (the last features index indexes_tf[-1]) is {indexes_tf[-1]};
         plt.show()
 
     def plot_prediction(
-            self, dt, predictions, future=None, 
-            show_features=True, data_count=50):
+            self, dt, predictions, future_data=None, 
+            show_features=True):
         """
         Parameters:
         -----------
 
         dt : ``DataTransfer`` object.
         """
-
-        # first_index = indexes_tf[0]
-        # index = np.where(dt.indexes > first_index)[0][0] - 1
         index = 0
         future_count = 0 if self.is_testing else self.feature_count
-        if dt.opens is not None:
-            plt.plot(dt.get_indexes()[index:], dt.opens[index:], 
-                     label='open orig.')
-        if dt.volumes is not None:
-            plt.plot(dt.get_indexes()[index:], dt.volumes[index:], 
-                     label='volume orig.')
-            
-        data_count = min(len(dt.indexes_tf), data_count)
+        opens, volumes, indexes = self.opens_volumes(dt.data_range)
 
+        if opens is not None:
+            plt.plot(indexes[index:], opens[index:], 
+                     label='open orig.')
+        # if volumes is not None:
+        #     plt.plot(indexes[index:], volumes[index:], 
+        #              label='volume orig.')
+            
         targets = dt.targets.transpose()
         for i in range(len(targets)):
             plt.plot(
                 dt.indexes_tf + future_count, 
                 targets[i], linewidth=7, alpha=0.5, # marker='o', 
                      label=self.target_names()[i])
-        if show_features:
-            features = dt.features.transpose()
-            plt.plot(
-                dt.indexes_tf, 
-                features[-1], # marker='x', 
-                        label='features[-1]')
+        # if show_features:
+        #     features = dt.features.transpose()
+        #     plt.plot(
+        #         dt.indexes_tf, 
+        #         features[-1], # marker='x', 
+        #                 label='features[-1]')
         plt.vlines(
             dt.indexes_tf[-1], np.min(targets[0]), np.max(targets[0]), 
             linestyle='dashed',
             label='time now')
+        
         # import pdb; pdb.set_trace()
+        pred0 = predictions[0] + self.future_count
+
+        pred0 = pred0[-self.future_count:]
+
+        pred1 = predictions[1]    
+        pred1 = pred1[-self.future_count:]
+        pred1 = pred1 + (targets[0][-1] - pred1[0])
+
         plt.plot(
-            predictions[0] + self.future_count, 
-            predictions[1],  
+            pred0, 
+            pred1,  
             linewidth=5, alpha=0.5, label='prediction')
         
-        if future is not None:
+        if future_data is not None:
+            opens, volumes, indexes = future_data
             plt.plot(
-                future[0], 
-                future[1], 
-                label='future')            
-        
+                    indexes, 
+                    opens, 
+                    label='open orig.')                 
         plt.legend()
         plt.show()

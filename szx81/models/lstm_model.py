@@ -14,8 +14,7 @@ from torch.autograd import Variable
 
 from core import _
 from nn_tools.data_sequencer import ContextSequencer
-from nn_tools.data_sources import SinusDs
-    
+
 class Model(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
         super(Model, self).__init__()
@@ -43,11 +42,9 @@ class Model(nn.Module):
 class NnDriver:
     def __init__(self,
                  data_source,
-                 model_class,
+                 model_object,
+                 feature_count,
                  future_count=5,
-                 context_len = 10,
-                 hidden_size=100,
-                 num_layers=3,
                  num_epochs=1000,
                  accuracy=1e-5,
                  learning_rate=0.001,
@@ -59,16 +56,13 @@ class NnDriver:
         self.learning_rate = learning_rate
         self.context_seq = ContextSequencer(
             data_source = data_source,
-            seq_len=context_len,
+            seq_len=model_object.input_size // feature_count,
             future_count=future_count,  
-            end_index=5000, 
+            end_index=5000
         )
-        self.model = model_class(
-            input_size=context_len, 
-            hidden_size=hidden_size, 
-            num_layers=num_layers, 
-            output_size=1
-            )
+
+        data_source.verbose = verbose
+        self.model = model_object
         self.data_source = self.context_seq.data_source
         
         self.verbose = verbose        
@@ -97,7 +91,7 @@ class NnDriver:
         y = Variable(torch.Tensor(y))
         return x, y
 
-    def train(self, data_count=1000, end_index=None, verbose=False):
+    def train(self, data_count=1000, end_index=None, verbose=0):
 
         x, y = self.get_training(data_count, end_index, verbose=verbose)
         x, y = self.preprocessing(x, y)
@@ -120,19 +114,23 @@ class NnDriver:
             
             self.optimizer.step()
 
-            if verbose:
+            if verbose > 1:
                 if (epoch + 1) % 10 == 0:
                     print(
                 f'Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.1e},  Diff: {1 - loss.item() / prev_loss:.1e}')
             
             prev_loss = loss.item()
-    
-    # def prediction(self, x, y):
-    #     x, y = self.preprocessing(x, y)
-    #     predicted = self.model(x).detach().numpy() # forward pass
-    #     return predicted
+
+        if verbose > 0:
+            print(f'''
+Loss decreased from {loss0:.1e} till {prev_loss:.1e}''')
          
-    def show_action(self, end_index, data_count=150, verbose=False):
+    def show_action(self,
+                    end_index, 
+                    data_count=150,
+                    future_data=30,
+                    show_features=True,  
+                    verbose=False):
         dt = self.context_seq.get_testing(
             end_index=end_index,
             data_count=data_count,
@@ -146,40 +144,6 @@ class NnDriver:
         predicted = self.model(x).detach().numpy() # forward pass
         self.context_seq.data_source.plot_prediction(
             dt = dt,
-            predictions=(dt.indexes_tf, predicted), 
-            data_count=20)
-
-def test():
-    training_end_index = 4000
-    data = SinusDs.Sinus(noise=0.03, stop=training_end_index)
-
-    ds = SinusDs(
-            data, 
-            (None, None),
-            step=3,
-            noise=0.03
-            )
-
-    dr = NnDriver(
-        data_source=ds,
-        model_class=Model,
-        future_count=15,
-        verbose=True
-        )
-    
-    dr.train(data_count=500, end_index=len(data) - dr.future_count)
-
-    testing_end_index = training_end_index + 50
-
-    dr.context_seq.data_source.data = SinusDs.Sinus(
-        noise=0.03, stop=testing_end_index)
-    dr.show_action(end_index=testing_end_index)
-
-def main():  
-    test()
-    
-if __name__ == "__main__":
-    main()  
-
-
- 
+            predictions=(dt.indexes_tf, predicted),
+            future_data=future_data, 
+            show_features=show_features)

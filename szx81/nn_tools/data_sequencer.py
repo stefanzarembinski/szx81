@@ -32,7 +32,7 @@ class ContextSequencer:
         self.data_source.future_count = future_count
     
     def create_sequences(self, end_index, data_count, 
-                         is_testing=True, verbose=False):
+                         is_testing=True, verbose=0):
             """Lists sequences of ``data`` items, ``seq_len`` long, ``data_count`` 
             of them, ending - not including - ``end_index`` index of ``data``. Each next sequence is shifted by 1 from the previous.
             """
@@ -73,21 +73,20 @@ class ContextSequencer:
             dt.indexes_tf = np.array(indexes_tf)
             return dt
     
-    def get_training(self, data_count, end_index, verbose=False):      
+    def get_training(self, data_count, end_index, verbose=0):      
         dt = self.create_sequences(
                                 end_index=end_index,
                                 data_count=data_count,
                                 is_testing=False
                                 )
         
-        if verbose:
+        if verbose > 1:
             print(f'''
 TRAINING DATA
 begin index: {dt.indexes_tf[0]}, 
 end index: {dt.indexes_tf[-1]}, 
 data count: {data_count}
-sequence length: {self.seq_len}
-''')
+sequence length: {self.seq_len}''')
         
         return dt
     
