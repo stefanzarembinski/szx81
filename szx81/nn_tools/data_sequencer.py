@@ -129,33 +129,22 @@ def test_cs():
     import math
     from sklearn.preprocessing import MinMaxScaler
     import hist_data as hd
-    from nn_tools.data_sources import OpenDs, SinusDs, set_logging_level
+    from nn_tools.data_sources import CandleVsOpenDs, SinusDs, set_logging_level
 
     # set_logging_level()
-
-    # cs = ContextSequencer(
-    #     data_source=OpenDs(
-    #         hd.DICT_DATA.values(), 
-    #         (MinMaxScaler(), MinMaxScaler()),
-    #         step=3
-    #         ),
-    #     seq_len=5,
-    #     future_count=10,
-    #     end_index=500
-    #     )
-    
+    #  ./szx81/nn_tools/data_sequencer.py
+    ds = CandleVsOpenDs(
+            hd.DICT_DATA.values(), 
+            (MinMaxScaler(), MinMaxScaler(), MinMaxScaler(), MinMaxScaler(),),
+            step=3
+            ) 
     cs = ContextSequencer(
-        data_source=SinusDs(
-            SinusDs.Sinus(noise=0.03, len=50000), 
-            (None, None),
-            step=3,
-            noise=0.03
-            ),
+        data_source=ds,
         seq_len=5,
         future_count=10,
         end_index=500
         )
-
+    
     dt = cs.create_sequences(end_index=2300, data_count=1500)
     print(f'''
 features: 
@@ -164,7 +153,30 @@ targets:
 {dt.targets}
 indexes:
 {dt.indexes_tf}
-''')
+''')    
+    ds.plot() 
+
+#     cs = ContextSequencer(
+#         data_source=SinusDs(
+#             SinusDs.Sinus(noise=0.03, len=50000), 
+#             (None, None),
+#             step=3,
+#             noise=0.03
+#             ),
+#         seq_len=5,
+#         future_count=10,
+#         end_index=500
+#         )
+
+#     dt = cs.create_sequences(end_index=2300, data_count=1500)
+#     print(f'''
+# features: 
+# {dt.features}
+# targets:
+# {dt.targets}
+# indexes:
+# {dt.indexes_tf}
+# ''')
 
 
 def main():

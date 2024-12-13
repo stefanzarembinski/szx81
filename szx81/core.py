@@ -27,17 +27,17 @@ def _(text, width=80):
 def _nw(text):
     return display(Markdown(text))
 
-HTML("""
-<style type="text/css">
-body{
-    width:600px /* or you can also set 90% or 900px*/
-    column-width: 600px
-}
-p {
-    font-size:10px;
-}
-</style>
-""")
+# HTML("""
+# <style type="text/css">
+# body{
+#     width:600px /* or you can also set 90% or 900px*/
+#     column-width: 600px
+# }
+# p {
+#     font-size:10px;
+# }
+# </style>
+# """)
 
 def jupiter_dir():
     # https://stackoverflow.com/questions/52119454/how-to-obtain-jupyter-notebooks-path

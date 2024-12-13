@@ -23,42 +23,141 @@ def set_logging_level(level=logging.DEBUG):
     logger = logging.getLogger(__file__)
     logger.setLevel(level)
 
-class OpenVolumeDs(DataSource):
+class CandleVsOpenDs(DataSource):
+
+    def __init__(self, scalers, data=None, verbose=False, **kwargs):
+        super().__init__(scalers, data, verbose, **kwargs)
+        self.feature_size = 4
+        self.target_size = 1
+        self.sub_checkout()
+
+    def __h(self, i):
+        val = self.data[i]
+        return (
+            (val[1][0][0] + val[1][1][0]) / 2, # open
+            (val[1][0][1] + val[1][1][1]) / 2, # high
+            (val[1][0][2] + val[1][1][2]) / 2, # low
+            (val[1][0][3] + val[1][1][3]) / 2, # close
+            val[2],
+            )
+    
     def fit_data__(self):
         self.step = self.kwargs['step']
         feature_0 = []
         feature_1 = []
+        feature_2 = []
+        feature_3 = []
 
         for i in range(0, len(self.data)):  
             open = 0
-            volume = 0
+            high_low = [0, 0]
+            open_close = [0, 0]
+            volume = 0            
             if not i + self.step < len(self.data):
                 break
             for k in range(self.step):
-                val = self.data[i + k]
-                open += (val[1][0][0] + val[1][1][0]) / 2
-                volume += val[2]              
+                val = self.__h(i + k)
+                open += val[0]
+                high_low[0] = max(high_low[0], val[1])
+                high_low[1] = min(high_low[1], val[2])
+                if k == 0:
+                    open_close[0] = val[0]
+                if k == self.step - 1:
+                    open_close[1] = val[3]
+                volume += val[4]
 
             feature_0.append(open / self.step)
-            feature_1.append(volume / self.step)
+            feature_1.append(high_low[1] - high_low[0])
+            feature_2.append(open_close[0] - open_close[1])
+            feature_3.append(volume / self.step)
 
         feature_0 = np.array(feature_0)
-        feature_1 = np.log(np.array(feature_1) + 10.0)
+        feature_1 = np.array(feature_1)
+        feature_2 = np.array(feature_2)
+        feature_3 = self.log_volume(np.array(feature_3))
 
-        self.fit_transform([feature_0, feature_1])
+        self.fit_transform([feature_0, feature_1, feature_2, feature_3])
 
     def feature_names(self):
-        return ('open', 'volume')
+        return ('open', 'high_low', 'open_close', 'volume')
     
     def target_names(self):
         return ('target open',)
         
     def get_data__(self):
+        indexes_tf = [] 
+        feature_0 = [] # open
+        feature_1 = [] # high-low
+        feature_2 = [] # open-close
+        feature_3 = [] # volume
+        target_0 = [] # target-open
 
-        def helper(i):
-            val = self.data[i]
-            return (val[1][0][0] + val[1][1][0]) / 2, val[2]
+        end = self.end_index - 1
+        future_count = 0 if self.is_testing else self.future_count
+        if self.is_testing:
+            future_count = 0
+        else:
+            future_count = self.future_count
 
+        for i in range(self.data_count):
+            open = 0
+            volume = 0
+            high_low = [0, 0]
+            open_close = [0, 0]
+            target_open = 0
+            for k in range(self.step):
+                val = self.__h(end - (i + k + future_count))
+                open += val[0]
+                high_low[0] = max(high_low[0], val[1])
+                high_low[1] = min(high_low[1], val[2])
+                if k == 0:
+                    open_close[0] = val[0]
+                    indexes_tf.insert(0, end - (i + k))
+                if k == self.step - 1:
+                    open_close[1] = val[3]
+                volume += val[4]
+
+                val = self.__h(end - (i + k + future_count))
+                target_open += val[0] # open
+
+                if k == self.step - 1:
+                    feature_0.insert(0, open / self.step)
+                    feature_1.insert(0, high_low[1] - high_low[0])
+                    feature_2.insert(0, open_close[0] - open_close[1])
+                    feature_3.insert(0, volume / self.step)
+                    target_0.insert(0, target_open / self.step) 
+                
+            feature_0.append(open / self.step)
+            feature_1.append(high_low[1] - high_low[0])
+            feature_2.append(open_close[0] - open_close[1])
+            feature_3.append(volume / self.step)
+
+        self.begin_index = indexes_tf[0] - self.step
+
+        feature_0 = np.array(feature_0)
+        feature_1 = np.array(feature_1)
+        feature_2 = np.array(feature_2)
+        feature_3 = self.log_volume(np.array(feature_3))
+
+        features = [feature_0, feature_1, feature_2, feature_3,]
+        features = self.transform(features)
+        self.features = np.concatenate(features, axis=1)
+
+        target_0 = np.array(target_0)
+        target_0 = self.transform(target_0, index=0)
+        self.targets = np.concatenate((target_0,), axis=1)
+
+        self.indexes_tf = np.array(indexes_tf)
+
+        return DataSource.DataTransfer(
+            data=self.data.copy(),
+            features=self.features,
+            targets=self.targets,
+            indexes_tf=self.indexes_tf,
+            data_range=(self.begin_index, self.end_index)
+        )
+
+    def get_data__old(self):
         indexes_tf = [] 
         feature_0 = []
         feature_1 = []
@@ -109,111 +208,13 @@ class OpenVolumeDs(DataSource):
             data_range=(self.begin_index, self.end_index)
         )
 
-class OpenDs(DataSource):
-
-    def fit_data__(self):
-        self.step = self.kwargs['step']
-        self.scaler_opens = self.scalers[0]
-        self.scaler_volumes = None
-        feature_0 = []
-
-        for i in range(0, len(self.data)):
-            open = 0
-            if not i + self.step < len(self.data): 
-                break
-            for k in range(self.step):
-                val = self.data[i + k]
-                open += (val[1][0][0] + val[1][1][0]) / 2           
-
-            feature_0.append(open / self.step)
-
-        feature_0 = np.array(feature_0)
-        
-        if self.verbose:
-            log.debug(f'''
-before transformation
-len(self.data): {len(self.data)}
-len(feature_0): {len(feature_0)}
-feature_0(min. max) = ({np.min(feature_0):.1e}, {np.max(feature_0):.1e})
-''')
-
-        feature_0 = self.fit_transform(feature_0, 0)
-
-        if self.verbose:
-            log.debug(f'''
-after transformation
-len(feature_0): {len(feature_0)}                  
-feature_0(min, max): ({np.min(feature_0):.1e}, {np.max(feature_0):.1e})''')
-
-
-    def feature_names(self):
-        return ('open',)
-    
-    def target_names(self):
-        return ('target open',)
-
-    def get_data__(self):
-
-        def helper(j):
-            val = self.data[j]
-            return (val[1][0][0] + val[1][1][0]) / 2
-        
-        indexes_tf = []
-        target_0 = []
-        feature_0 = []  
-
-        end = self.end_index - 1
-        future_count = 0 if self.is_testing else self.future_count
-        if self.is_testing:
-            future_count = 0
-        else:
-            future_count = self.future_count
-
-        for i in range(self.data_count):
-            _feature_0 = 0
-            _target_0 = 0
-            for k in range(self.step):
-                _open = helper(end - (i + k + future_count))
-                _feature_0 += _open
-                _open = helper(end - (i + k))
-                _target_0 += _open
-
-                if k == 0: indexes_tf.insert(0, end - (i + k))
-                if k == self.step - 1:
-                    feature_0.insert(0, (_feature_0 / self.step))
-                    target_0.insert(0, (_target_0 / self.step)) 
-
-        self.begin_index = indexes_tf[0] - self.step
-
-        indexes_tf = np.array(indexes_tf)
-        feature_0 = np.array(feature_0)
-
-        feature_0 = self.transform(feature_0, 0)
-        target_0 = np.array(target_0)
-        target_0 = self.transform(target_0, 0)
-
-        if self.verbose:
-            log.debug(f'''
-len(feature indexes): {len(indexes_tf)}
-feature indexes(min. max): ({np.min(indexes_tf)}, {np.max(indexes_tf)})
-len(feature_0): {len(feature_0)}
-feature_0(min. max): ({np.min(feature_0):.1e}, {np.max(feature_0):.1e})
-len(target_0): {len(target_0)}
-target_0(min. max): ({np.min(target_0):.1e}, {np.max(target_0):.1e})
-''')
-        self.features = np.concatenate((feature_0,), axis=1)
-        self.targets = np.concatenate((target_0,), axis=1)
-        self.indexes_tf = indexes_tf
-
-        return DataSource.DataTransfer(
-            data=self.data.copy(),
-            features=self.features,
-            targets=self.targets,
-            indexes_tf=self.indexes_tf,
-            data_range=(self.begin_index, self.end_index)
-        )
-
 class SinusDs(DataSource):
+
+    def __init__(self, scalers, data=None, verbose=False, **kwargs):
+        super().__init__(data, scalers, verbose, **kwargs)
+        self.feature_size = 1
+        self.target_size = 1
+        self.sub_checkout()
 
     class Sinus:
         def __init__(self, noise=0.03, stop=None, start=0, step=1):
@@ -319,16 +320,22 @@ length: {len(self)}
         return dt
     
 def test_ds():
-    # ds = OpenVolumeDs(
-    #     hd.DICT_DATA.values(), (StandardScaler(), StandardScaler()), step=10)
-    # ds = OpenDs(
-    #     hd.DICT_DATA.values(), (MinMaxScaler(), MinMaxScaler()), step=3) 
-
-    ds = SinusDs(SinusDs.Sinus(noise=0.03, len=5000), (None, None), step=5)    
+    ds = CandleVsOpenDs(
+        (MinMaxScaler(), MinMaxScaler(), MinMaxScaler(), MinMaxScaler(),),
+        list(hd.DICT_DATA.values())[:5000], 
+        step=10)
     ds.get_data(end_index=1000, data_count=30, future_count=3)
     ds.report()
     # ds.plot_ds(plt, data_count=10, show=True)
     ds.plot(data_count=50)
+
+    # ds = SinusDs(
+    #           (None, None), SinusDs.Sinus(noise=0.03, 
+    #           len=5000),  step=5)    
+    # ds.get_data(end_index=1000, data_count=30, future_count=3)
+    # ds.report()
+    # # ds.plot_ds(plt, data_count=10, show=True)
+    # ds.plot(data_count=50)
 
 
 def main():

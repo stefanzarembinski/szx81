@@ -35,26 +35,29 @@ class DataSource:
             self.indexes_tf = indexes_tf
             self.data_range = data_range
 
-    def __init__(self, data, scalers,
-                        verbose=False, **kwargs):
+    def __init__(self, 
+                scalers, 
+                data=None,
+                verbose=False, **kwargs):
         """ The ``get_data`` method returns the given count of data object 
         needed for composing feature and target inputs of an NN model.
 
         Parameters
         ----------
-        data : Array of historical data available.
         scalers: Array of NN model inputs scalers.
+        data : Array of historical data available.
         """
         self.data = data
-        if isinstance(self.data, list):
+        if isinstance(data, {}.values().__class__):
             self.data = list(data)
 
         self.scalers = scalers
-        self.feature_count = 2
         self.future_count = 10   
         self.kwargs = kwargs
         self.scaler_opens = MinMaxScaler()
         self.scaler_volumes = MinMaxScaler()
+        self.feature_size = None
+        self.target_size = None
         self.end_index = None
         self.begin_index= None
         self.data_count = None
@@ -65,8 +68,6 @@ class DataSource:
         self.volumes = None
         self.indexes = None
         self.verbose = verbose
-        self.fit_data()           
-    
 
     def fit_data__(self):
         raise NotImplementedError()
@@ -85,6 +86,23 @@ class DataSource:
     def target_names(self):
         return [str(i) for i in range(20)]
         # Change accordingly   
+
+    def sub_checkout(self):
+        if len(self.scalers) < self.feature_size:
+            raise ValueError(f'''
+The parameter ``scalers`` has to be a list {self.feature_size} items long, 
+at least.
+''')
+        if len(self.target_names()) < self.target_size:
+            raise ValueError(f'''
+The method  ``self.target_names()`` has to return a list {self.target_size} items long, at least.
+''')
+        if len(self.feature_names()) < self.feature_size:
+            raise ValueError(f'''
+The method  ``self.target_names()`` has to return a list {self.feature_size} items long, at least.
+''')    
+        if self.data is not None:
+            self.fit_data()
 
     def plot_ds(self, plt):
         raise NotImplementedError()
@@ -133,8 +151,11 @@ class DataSource:
         return len(self.indexes_tf)
     
 
-    def fit_data(self):
-      
+    def fit_data(self, data=None):
+        self.data = data
+        if isinstance(data, {}.values().__class__):
+            self.data = list(data)
+
         self.fit_data__()
 
         if (self.opens is None) and (self.scaler_opens is not None):
@@ -251,7 +272,7 @@ feature indexes:
         data_count = min(len(self.indexes_tf), data_count)
         indexes_tf = np.array(self.indexes_tf[-data_count:])
         targets = self.targets.transpose()
-        future_count = 0 if self.is_testing else self.feature_count
+        future_count = 0 if self.is_testing else self.future_count
         for i in range(len(targets)):
             plt.plot(
                 indexes_tf + future_count, 
@@ -306,8 +327,9 @@ time now (the last features index indexes_tf[-1]) is {indexes_tf[-1]};
         plt.show()
 
     def plot_prediction(
-            self, dt, predictions, future_data=None, 
-            show_features=True):
+            self, dt, predictions, future_data=None,
+            show_volumes=False,
+            show_features=False):
         """
         Parameters:
         -----------
@@ -315,7 +337,7 @@ time now (the last features index indexes_tf[-1]) is {indexes_tf[-1]};
         dt : ``DataTransfer`` object.
         """
         index = 0
-        future_count = 0 if self.is_testing else self.feature_count
+        future_count = 0 if self.is_testing else self.future_count
         opens, volumes, indexes = self.opens_volumes(dt.data_range)
 
         if opens is not None:
@@ -326,17 +348,18 @@ time now (the last features index indexes_tf[-1]) is {indexes_tf[-1]};
         #              label='volume orig.')
             
         targets = dt.targets.transpose()
-        for i in range(len(targets)):
+        plt.plot(
+            dt.indexes_tf + future_count, 
+            targets[0], linewidth=7, alpha=0.5, # marker='o', 
+                    label=self.target_names()[0])
+            
+        if show_features:
+            features = dt.features.transpose()
             plt.plot(
-                dt.indexes_tf + future_count, 
-                targets[i], linewidth=7, alpha=0.5, # marker='o', 
-                     label=self.target_names()[i])
-        # if show_features:
-        #     features = dt.features.transpose()
-        #     plt.plot(
-        #         dt.indexes_tf, 
-        #         features[-1], # marker='x', 
-        #                 label='features[-1]')
+                dt.indexes_tf, 
+                features[-1], # marker='x', 
+                        label='features[-1]')
+        
         plt.vlines(
             dt.indexes_tf[-1], np.min(targets[0]), np.max(targets[0]), 
             linestyle='dashed',
@@ -345,11 +368,12 @@ time now (the last features index indexes_tf[-1]) is {indexes_tf[-1]};
         # import pdb; pdb.set_trace()
         pred0 = predictions[0] + self.future_count
 
-        pred0 = pred0[-self.future_count:]
+        # pred0 = pred0[-self.future_count:]
 
         pred1 = predictions[1]    
-        pred1 = pred1[-self.future_count:]
-        pred1 = pred1 + (targets[0][-1] - pred1[0])
+        # pred1 = pred1[-self.future_count:]
+        # pred1 = pred1 + (targets[0][-1] - pred1[0])
+
 
         plt.plot(
             pred0, 
@@ -361,6 +385,7 @@ time now (the last features index indexes_tf[-1]) is {indexes_tf[-1]};
             plt.plot(
                     indexes, 
                     opens, 
-                    label='open orig.')                 
+                    label='open orig.')
+                       
         plt.legend()
         plt.show()

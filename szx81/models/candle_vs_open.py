@@ -15,20 +15,16 @@ from torch.autograd import Variable
 
 import hist_data as hd
 from models.lstm_model import Model, NnDriver
-from nn_tools.data_sources import OpenVolumeDs
+from nn_tools.data_sources import CandleVsOpenDs
 
 def test():
     data = list(hd.DICT_DATA.values())
-    DataSource = OpenVolumeDs
+    DataSource = CandleVsOpenDs
 
     verbose = False
-    training_end_index = 10000
-
-    training_data = data[:training_end_index]
 
     ds = DataSource(
-            training_data, 
-            (MinMaxScaler(), MinMaxScaler()),
+            (MinMaxScaler(), MinMaxScaler(), MinMaxScaler(), MinMaxScaler()),
             step=3,
             verbose=verbose
             )
@@ -36,19 +32,23 @@ def test():
     dr = NnDriver(
         data_source=ds,
         model_object=Model(
-            input_size=10, 
             hidden_size=100, 
-            num_layers=3, 
-            output_size=1
+            num_layers=3,
             ),
-        feature_count = 2,
         future_count=50,
         num_epochs=1000,
         accuracy=1e-5,
         learning_rate=0.001,
         verbose=verbose
-    )
+        )
+    
+    if verbose > 0:
+        print(dr)
 
+    ds.fit_data(data[:20000])
+
+    training_end_index = 10000
+    training_data = data[:training_end_index]
     dr.train(
         data_count=500, 
         end_index=len(training_data) - dr.future_count,
