@@ -45,8 +45,13 @@ def jupiter_dir():
     return os.path.abspath('')
 
 # import setup
-
 SETUP = config_all.CONFIG
+TEST_DATA_DIR = path.join(path.dirname(__file__), '../', SETUP['forex'])
+
+def set_test_data_dir(name):
+    global TEST_DATA_DIR
+    TEST_DATA_DIR = path.join(path.dirname(__file__), '../', name)
+
 TEST_DATA_DIR = path.join(path.dirname(__file__), '../', SETUP['forex'])
 sys.path.append(TEST_DATA_DIR)
 import config # type: ignore
