@@ -16,3 +16,5 @@ EURUSD/data_store
 WikiText2
 szx81/test.py
 *.ipynb
+szx81/tutorials/.vector_cache/glove.6B.zip
+/szx81/tutorials/.vector_cache

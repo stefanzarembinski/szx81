@@ -44,26 +44,34 @@ def jupiter_dir():
     import os
     return os.path.abspath('')
 
-# import setup
-SETUP = config_all.CONFIG
-TEST_DATA_DIR = path.join(path.dirname(__file__), '../', SETUP['forex'])
-
-def set_test_data_dir(name):
-    global TEST_DATA_DIR
-    TEST_DATA_DIR = path.join(path.dirname(__file__), '../', name)
-
-TEST_DATA_DIR = path.join(path.dirname(__file__), '../', SETUP['forex'])
-sys.path.append(TEST_DATA_DIR)
-import config # type: ignore
-importlib.reload(config_all)
-
+TEST_DATA_DIR = None
+MA_WINDOW_SIZE = None
+DATA_STORE = None
 TEST_DATA = 'test_data'
-WARMUP_TIME = config.MA_WINDOW_SIZE # min
-DATA_STORE = path.join(TEST_DATA_DIR, config.DATA_STORE)
+DATA_DIR_NAME = None
+config = None
+
+def setup(data_dir_name):
+    global TEST_DATA_DIR
+    global MA_WINDOW_SIZE
+    global DATA_STORE
+    global config
+
+    TEST_DATA_DIR = path.join(
+        path.dirname(__file__), '../../', data_dir_name)
+    sys.path.append(TEST_DATA_DIR)
+    import config as _config # type: ignore
+    importlib.reload(_config)
+    config = _config
+
+    MA_WINDOW_SIZE = config.MA_WINDOW_SIZE
+    DATA_STORE = path.join(TEST_DATA_DIR, config.DATA_STORE)
+
+setup(config_all.DATA_DIR_NAME)
 
 class MovingAverage:
     
-    def __init__(self, window_size=config.MA_WINDOW_SIZE):
+    def __init__(self, window_size=MA_WINDOW_SIZE):
         self.window_size = window_size
         self.window_data = []
         self.count = 0

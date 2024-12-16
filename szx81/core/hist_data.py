@@ -7,8 +7,7 @@ import pickle
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
-import core as co
-from core import config_all
+import core.core as co
 
 def save_data(data):
     file = path.join(co.DATA_STORE, f'hist_data.pkl')
@@ -31,12 +30,12 @@ class HistData:
         Loads the data to a list accessible with a generator defined in the Class.
     """
     def __init__(self, data_count=200, start_time=None, moving_av=True):
-        _warmup_time = co.WARMUP_TIME if moving_av else 0           
+        _warmup_time = co.config.WARMUP_TIME if moving_av else 0           
 
         if data_count is not None:
             data_count += _warmup_time
         if start_time is not None:
-            start_time -= _warmup_time * config_all.PERIOD * 60
+            start_time -= _warmup_time * co.config.PERIOD * 60
         self.data_count = data_count
         self.start_time = start_time
         
@@ -46,13 +45,13 @@ class HistData:
         bid_files = []
         
         for data_file in os.listdir(self.data_dir):
-            rex = co.config_all.FILE_FORMAT
+            rex = co.config.FILE_FORMAT
             pair, direction, date_from, date_till = re.match(rex, data_file).groups()
-            if pair != co.SETUP['forex']:
+            if pair != co.config.NAME:
                 raise RuntimeError('Wrong forex currency pair!')
-            strptime = datetime.datetime.strptime(date_from, co.config_all.FILENAME_TIMESTRING)
+            strptime = datetime.datetime.strptime(date_from, co.config.FILENAME_TIMESTRING)
             timestamp_from = time.mktime(strptime.timetuple())
-            strptime = datetime.datetime.strptime(date_till, co.config_all.FILENAME_TIMESTRING)
+            strptime = datetime.datetime.strptime(date_till, co.config.FILENAME_TIMESTRING)
             timestamp_till = time.mktime(strptime.timetuple())
             # import pdb; pdb.set_trace()
             files = ask_files if direction == 'ASK' else bid_files
@@ -69,9 +68,8 @@ class HistData:
 
         # Sort data because datafile order can be not sequential:
         data_map = sorted(self.data_map.items())
-        # Subtract mooving avarage:
+        # Subtract moving average:
         self.data = {}
-
 
         ma = co.MovingAverage()
         _warmup_time -= 1
@@ -101,7 +99,7 @@ class HistData:
     def read_data_files(self, direction):
         start_time = self.start_time
         data_count = self.data_count
-        timestring_format = config_all.TIME_STRING
+        timestring_format = co.config.TIME_STRING
 
         for data_file in self.directions[direction]:
             
@@ -125,7 +123,7 @@ class HistData:
                             break
                         data_count -= 1
                     
-                    if not timestamp % config_all.PERIOD == 0:
+                    if not timestamp % co.config.PERIOD == 0:
                         raise RuntimeError('Wrong data period!')
 
                     _values = []
@@ -178,6 +176,8 @@ def set_hist_data(data_count=3000, start_time=None, moving_av=True, force_save=F
         print(f'Test data start time is {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[0][0]))}')
         print(f'Test data end time is   {time.strftime("%Y:%m:%d %H:%M", time.gmtime(DATA[-1][0]))}')
         print(f'Subtracting moving avarage: {moving_av}')
+
+    return DATA
 
 def plot(count=None):
     plot_values = DATA[:count] if count is not None else PendingDeprecationWarning

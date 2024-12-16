@@ -1,4 +1,5 @@
 
+NAME = 'EURUSD'
 PERIOD = 60
 MA_WINDOW_SIZE = 2 * 24 * 60# period time units
 TIME_STRING = '%d.%m.%Y %H:%M:%S.000'
@@ -9,5 +10,6 @@ FORECAST_THRESHOLD = 3e-4
 PANIC_THRESHOLD = 1e-4
 PIP = 1e-4
 DATA_STORE = 'data_store'
+WARMUP_TIME = MA_WINDOW_SIZE # min
 
 

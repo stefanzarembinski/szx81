@@ -8,8 +8,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import pickle
 import core as co
 from core import config_all
-import piecewise_fit as ls
-import hist_data as hd
+import tokenization.piecewise_fit as ls
+import core.hist_data as hd
 
 class Forecast:
     """Given historical data, determines current trade opportunities.

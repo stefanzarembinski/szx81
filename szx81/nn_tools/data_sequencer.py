@@ -128,7 +128,7 @@ def test_cs():
     import random
     import math
     from sklearn.preprocessing import MinMaxScaler
-    import hist_data as hd
+    import core.hist_data as hd
     from nn_tools.data_sources import CandleVsOpenDs, SinusDs, set_logging_level
 
     # set_logging_level()

@@ -1,3 +1,1 @@
-CONFIG = {
-    "forex": "EURUSD",
-}
+DATA_DIR_NAME = 'EURUSD'

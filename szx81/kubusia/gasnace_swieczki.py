@@ -8,7 +8,7 @@ import numpy as np
 DIRNAME = path.dirname(__file__)
 sys.path.append(path.join(DIRNAME, '..'))
 from core import *
-import hist_data as td
+import core.hist_data as td
 
 if td.DATA is None:
     td.set_test_data(
@@ -17,7 +17,7 @@ if td.DATA is None:
     moving_av=False
     )
 
-from hist_data import *
+from core.hist_data import *
 
 CURRENT_RANGE = 11 * 60
 FUTURE_RANGE = 1 * 60

@@ -6,12 +6,9 @@ import pickle
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import core as co
-from core import config_all
-import piecewise_fit as ls
-import hist_data as td
-
-
+import core.core as co
+import tokenization.piecewise_fit as ls
+import core.hist_data as td
 
 class Tokenizer:
     number_pieces = 10
@@ -85,6 +82,23 @@ class Tokenizer:
         return retval
 
     def set_quantization_levels(time_stat, value_stat, temperature_stat):
+        """Given statistics of parameters of token population derived from
+        historical data, return relevant quantization levels.
+
+        Parameters:
+        -----------
+        time_stat : (hist, bin_edges) tuple as resulted from numpy.histogram,
+            fed with the set of values ot the ``time`` argument of tokens. 
+        value_stat : (hist, bin_edges) tuple as resulted from numpy.histogram,
+            fed with the set of values ot the ``value`` argument of tokens.
+        noise_stat : (hist, bin_edges) tuple as resulted from numpy.histogram,
+            fed with the set of values ot the ``noise`` argument of tokens.
+
+        Note:
+        -----
+        Quantization levels are distributed uniformly within relevant 
+        populations.
+        """
         def histogram(hist, bin_edges, level_count):
             hist_cum = hist.cumsum()
             hist_cum = hist_cum / hist_cum[-1]
@@ -95,6 +109,7 @@ class Tokenizer:
                 index = (np.abs(hist_cum - (i + 1) * level_dist).argmin())
                 levels.append(bin_edges[index])
 
+            # levels can be negative:
             return [Tokenizer.round_sig(_) for _ in levels]
         
         time_levels = histogram(*time_stat, Tokenizer.level_count)
@@ -106,29 +121,32 @@ class Tokenizer:
         Tokenizer.temperature_levels = temperature_levels
  
     def quantize(x, levels):
-        """Returns given array quantized according to given levels.
+        """Returns given array of valued quantized according to given levels.
 
         Parameters
         ----------
-        x : Array of numbers to be quantized.
+        x : Array of values to be quantized.
         levels : Array of quantization values.
 
         Returns
         -------
-        x_quant : Quantized input array. 
+        x_quant : Array of quantized values of the input array. 
         """
         def do(x):
+            levels_size = len(levels)
+                              
             if x <= levels[0]:
-                return levels[0]
+                return (0, levels[0])
             if x >= levels[-1]:
-                return levels[-1]
+                return (levels_size - 1, levels[-1])
 
-            for i in range(1, len(levels)):
+            for i in range(1, levels_size):
                 if x < levels[i]:
-                    mean = (levels[i-1] + levels[i]) * .5
-                    if x <= mean: return levels[i-1]
-                    return levels[i]
-        return np.array([do(_) for _ in x])
+                    mean = (levels[i-1] + levels[i]) * .5  
+                    if x <= mean: return (i - 1, levels[i-1])
+                    return (i, levels[i])
+         
+        return [do(_) for _ in x]
 
     def get_sentence(data):
         """Converts a short chunk of data into tokens.
@@ -179,18 +197,18 @@ class Tokenizer:
             filter=Tokenizer.filter, number_pieces=Tokenizer.number_pieces)
         
         time_set, value_set = clazz.knots()
-        time_part = [time_set[i] - time_set[i-1] for i in range(1, len(time_set))]
+        time_part = [time_set[i] - time_set[i-1] \
+                                            for i in range(1, len(time_set))]
         time_qu = Tokenizer.quantize(time_part, Tokenizer.time_levels)
-        
+
         value_part = [value_set[i] for i in range(1, len(value_set))]
         value_qu = Tokenizer.quantize(value_part, Tokenizer.value_levels)
-        
-               
+              
         temp_part = clazz.temperature()
         temp_qu = Tokenizer.quantize(temp_part, Tokenizer.temperature_levels)
-        # import pdb; pdb.set_trace() 
-        return [(round(time_qu[i], 1), value_qu[i], temp_qu[i])
-                                                    for i in range(len(time_qu))]
+
+        return [(time_qu[i], value_qu[i], temp_qu[i]) \
+                                            for i in range(len(time_qu))]
     
     def get_whole_story(data, window=None, force_save=False):
         """Converts data into tokens.
@@ -275,7 +293,6 @@ def test_temperature():
     print('hist:\n', hist)
     print('edges:\n', bin_edg)
 
-
 def test_quantization():
     tokenizer = Tokenizer(td.Data)
     Tokenizer.set_quantization_levels(Tokenizer.get_statistics(td.DATA, bins=100))
@@ -286,20 +303,18 @@ def test_quantization():
     while shift + window < len(td.DATA):
         time_value_temp.extend(tokenizer.get_sentence(td.DATA[shift: shift + window]))
         shift += window
-    # import pdb; pdb.set_trace()
+
     print(set(Tokenizer.get_sentence_str(time_value_temp)))
 
 
 def test():
-    import hist_data as td
-    from hist_data import set_hist_data
-    from tokenizer import Tokenizer
+    from core.hist_data import set_hist_data
+    from core.hist_data import set_hist_data
+    from tokenization.tokenizer import Tokenizer
 
-    set_hist_data(
-    data_count=None, 
-    moving_av=True)
-
-    DATA = td.DATA
+    DATA = set_hist_data(
+        data_count=None, 
+        moving_av=True)
 
     Tokenizer.set_quantization_levels(*Tokenizer.get_statistics(DATA, bins=100))
 
@@ -308,8 +323,6 @@ def test():
     token = Tokenizer.get_sentence(DATA[shift: shift + window])
     whole_story = Tokenizer.get_whole_story(DATA, force_save=False)
     word, word_count = Tokenizer.get_words_used(whole_story)
-    import pdb; pdb.set_trace()
-    pass
 
 def main():
     test()

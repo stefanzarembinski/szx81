@@ -1,7 +1,7 @@
 import sys
 import matplotlib.pyplot as plt
 
-import hist_data as hd
+import core.hist_data as hd
 import forecast as fo
 
 PIP = 1e-4

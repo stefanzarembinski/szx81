@@ -16,7 +16,7 @@ from torch.autograd import Variable
 
 import core as co
 from core import _
-import hist_data as hd
+import core.hist_data as hd
 import nn_tools.data_sequencer as ds
 import nn_tools.data_source as ns
     

@@ -13,7 +13,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 from core import _
-from models.lstm_model import Model, NnDriver
+from models.lstm.lstm_model import Model, NnDriver
 from nn_tools.data_sources import SinusDs
 
 def test():

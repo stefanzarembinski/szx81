@@ -13,8 +13,8 @@ torch.manual_seed(0)
 import torch.nn as nn
 from torch.autograd import Variable
 
-import hist_data as hd
-from models.lstm_model import Model, NnDriver
+import core.hist_data as hd
+from models.lstm.lstm_model import Model, NnDriver
 from nn_tools.data_sources import CandleVsOpenDs
 
 def test():

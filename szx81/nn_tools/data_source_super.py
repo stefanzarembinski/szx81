@@ -8,7 +8,7 @@ log = logging.getLogger(__file__)
 log.setLevel(level=logging.DEBUG)
 
 import core as co
-import hist_data as hd
+import core.hist_data as hd
 if hd.DATA is None:
     hd.set_hist_data(data_count=None)
 

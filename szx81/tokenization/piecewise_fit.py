@@ -9,11 +9,13 @@ from operator import itemgetter
 import scipy.optimize as spo
 from scipy.interpolate import splrep, BSpline
 
-import core as co
-import hist_data as td
-import leastsqbound as lb
+import core.core as co
+import core.hist_data as td
+import core.leastsqbound as lb
 
 np.set_printoptions(formatter={'float_kind':"{:-.3e}".format})
+
+
 # def piecewise(self, x, params):
 #     self.params = params
 #     xk, yk = _Piecewise._approx(x, *params)
@@ -200,7 +202,7 @@ def piecewise(
     return piecewise.func_class
 
 def main():
-    td.set_test_data(
+    td.set_hist_data(
         data_count=10000, 
         start_time=datetime.datetime(2023, 3, 21, 12, 24).timestamp(), 
         moving_av=True)

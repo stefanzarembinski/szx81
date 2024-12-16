@@ -15,7 +15,7 @@ log.setLevel(level=logging.DEBUG)
 
 
 import core as co
-import hist_data as hd
+import core.hist_data as hd
 
 from nn_tools.data_source_super import DataSource
 
